@@ -1,2 +1,11 @@
 .*.swp
 .*.swo
+*.cmake
+CMakeCache.txt
+CMakeFiles
+Makefile
+install_manifest.txt
+/tmp
+/lib
+/include
+/src/lambchop
