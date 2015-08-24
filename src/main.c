@@ -13,9 +13,10 @@
 int main(int argc, char **argv) {
   lambchop_logger logger;
   char *path;
-  int fd, size, ret = 0;
+  int fd, ret = 0;
   struct stat st;
   char *buf = NULL;
+  size_t size;
 
   if (argc < 2) {
     fprintf(stderr, "usage: lambchop executable_path\n");
@@ -46,6 +47,11 @@ int main(int argc, char **argv) {
   buf = malloc(size);
   if (!buf) {
     fprintf(stderr, "failed to allocate buffer: %s\n", strerror(errno));
+    goto err;
+  }
+
+  if (!lambchop_macho_load(buf, size, &logger)) {
+    fprintf(stderr, "failed to process %s\n", path);
     goto err;
   }
 
