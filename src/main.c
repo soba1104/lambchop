@@ -10,6 +10,21 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+static bool readn(int fd, char *buf, size_t size) {
+  int idx = 0;
+
+  while (idx < size) {
+    int ret = read(fd, buf + idx, size - idx);
+    if (ret < 0) {
+      return false;
+    } else if (ret == 0) {
+      return false;
+    }
+    idx += ret;
+  }
+  return true;
+}
+
 int main(int argc, char **argv) {
   lambchop_logger logger;
   char *path;
@@ -47,6 +62,10 @@ int main(int argc, char **argv) {
   buf = malloc(size);
   if (!buf) {
     fprintf(stderr, "failed to allocate buffer: %s\n", strerror(errno));
+    goto err;
+  }
+  if (!readn(fd, buf, size)) {
+    fprintf(stderr, "failed to read %zu bytes from %s: %s\n", size, path, strerror(errno));
     goto err;
   }
 
