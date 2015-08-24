@@ -8,7 +8,7 @@ void lambchop_logger_log(lambchop_logger *logger, int level, const char *format,
         va_list ap;
         pthread_mutex_lock(&(logger->mutex));
         va_start(ap, format);
-        dprintf(logger->fd, format, ap);
+        vdprintf(logger->fd, format, ap);
         va_end(ap);
         pthread_mutex_unlock(&(logger->mutex));
     }

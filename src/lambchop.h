@@ -14,6 +14,10 @@
 #define LAMBCHOP_DEFAULT_LOG_LEVEL LAMBCHOP_LOG_INFO
 #define LAMBCHOP_DEFAULT_LOG_FD STDERR_FILENO
 
+#define lambchop_err(logger, ...) lambchop_logger_log((logger), LAMBCHOP_LOG_ERROR, __VA_ARGS__)
+#define lambchop_info(logger, ...) lambchop_logger_log((logger), LAMBCHOP_LOG_INFO, __VA_ARGS__)
+#define lambchop_debug(logger, ...) lambchop_logger_log((logger), LAMBCHOP_LOG_DEBUG, __VA_ARGS__)
+
 typedef struct {
     int level;
     int fd;
