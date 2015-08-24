@@ -82,7 +82,7 @@ static bool lc_dump_symtab_64(struct symtab_command *command, char *img, lambcho
   char *string_table = img + command->stroff;
   int i;
   lambchop_info(logger, "--------------------- SYMTAB COMMAND ---------------------\n");
-  lambchop_info(logger, "symoff = %u\n", command->symoff);
+  lambchop_info(logger, "symoff = 0x%x\n", command->symoff);
   lambchop_info(logger, "nsyms = %u\n", command->nsyms);
   lambchop_info(logger, "stroff = 0x%x\n", command->stroff);
   lambchop_info(logger, "strsize = %u\n", command->strsize);
@@ -102,6 +102,7 @@ static bool lc_dump_symtab_64(struct symtab_command *command, char *img, lambcho
 }
 
 static bool lc_dump_dysymtab(struct dysymtab_command *command, char *img, lambchop_logger *logger) {
+  int i;
   lambchop_info(logger, "--------------------- DYSYMTAB COMMAND ---------------------\n");
   lambchop_info(logger, "ilocalsym = %u\n", command->ilocalsym);
   lambchop_info(logger, "nlocalsym = %u\n", command->nlocalsym);
@@ -109,18 +110,23 @@ static bool lc_dump_dysymtab(struct dysymtab_command *command, char *img, lambch
   lambchop_info(logger, "nextdefsym = %u\n", command->nextdefsym);
   lambchop_info(logger, "iundefsym = %u\n", command->iundefsym);
   lambchop_info(logger, "nundefsym = %u\n", command->nundefsym);
-  lambchop_info(logger, "tocoff = %u\n", command->tocoff);
+  lambchop_info(logger, "tocoff = 0x%x\n", command->tocoff);
   lambchop_info(logger, "ntoc = %u\n", command->ntoc);
-  lambchop_info(logger, "modtaboff = %u\n", command->modtaboff);
+  lambchop_info(logger, "modtaboff = 0x%x\n", command->modtaboff);
   lambchop_info(logger, "nmodtab = %u\n", command->nmodtab);
-  lambchop_info(logger, "extrefsymoff = %u\n", command->extrefsymoff);
+  lambchop_info(logger, "extrefsymoff = 0x%x\n", command->extrefsymoff);
   lambchop_info(logger, "nextrefsyms = %u\n", command->nextrefsyms);
-  lambchop_info(logger, "indirectsymoff = %u\n", command->indirectsymoff);
+  lambchop_info(logger, "indirectsymoff = 0x%x\n", command->indirectsymoff);
   lambchop_info(logger, "nindirectsyms = %u\n", command->nindirectsyms);
-  lambchop_info(logger, "extreloff = %u\n", command->extreloff);
+  lambchop_info(logger, "extreloff = 0x%x\n", command->extreloff);
   lambchop_info(logger, "nextrel = %u\n", command->nextrel);
-  lambchop_info(logger, "locreloff = %u\n", command->locreloff);
+  lambchop_info(logger, "locreloff = 0x%x\n", command->locreloff);
   lambchop_info(logger, "nlocrel = %u\n", command->nlocrel);
+  for (i = 0; i < command->nindirectsyms; i++) {
+    uint32_t *indirect_symbol_table = (uint32_t*)(img + command->indirectsymoff);
+    uint32_t entry = indirect_symbol_table[i];
+    lambchop_info(logger, "indirect_symbol_table[%d] = 0x%x\n", i, entry);
+  }
   lambchop_info(logger, "------------------------------------------------------------\n");
   return true;
 }
