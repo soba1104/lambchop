@@ -60,10 +60,161 @@ static bool lc_dump_segment_64(struct segment_command_64 *command, lambchop_logg
   return true;
 }
 
+static bool lc_dump_dyld_info_only(struct dyld_info_command *command, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- DYLD INFO ONLY COMMAND ---------------------\n");
+  lambchop_info(logger, "rebase_off = %u\n", command->rebase_off);
+  lambchop_info(logger, "rebase_size = %u\n", command->rebase_size);
+  lambchop_info(logger, "bind_off = %u\n", command->bind_off);
+  lambchop_info(logger, "bind_size = %u\n", command->bind_size);
+  lambchop_info(logger, "weak_bind_off = %u\n", command->weak_bind_off);
+  lambchop_info(logger, "weak_bind_size = %u\n", command->weak_bind_size);
+  lambchop_info(logger, "lazy_bind_off = %u\n", command->lazy_bind_off);
+  lambchop_info(logger, "lazy_bind_size = %u\n", command->lazy_bind_size);
+  lambchop_info(logger, "export_off = %u\n", command->export_off);
+  lambchop_info(logger, "export_size = %u\n", command->export_size);
+  lambchop_info(logger, "------------------------------------------------------------------\n");
+  return true;
+}
+
+static bool lc_dump_symtab(struct symtab_command *command, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- SYMTAB COMMAND ---------------------\n");
+  lambchop_info(logger, "symoff = %u\n", command->symoff);
+  lambchop_info(logger, "nsyms = %u\n", command->nsyms);
+  lambchop_info(logger, "stroff = %u\n", command->stroff);
+  lambchop_info(logger, "strsize = %u\n", command->strsize);
+  lambchop_info(logger, "----------------------------------------------------------\n");
+  return true;
+}
+
+static bool lc_dump_dysymtab(struct dysymtab_command *command, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- DYSYMTAB COMMAND ---------------------\n");
+  lambchop_info(logger, "ilocalsym = %u\n", command->ilocalsym);
+  lambchop_info(logger, "nlocalsym = %u\n", command->nlocalsym);
+  lambchop_info(logger, "iextdefsym = %u\n", command->iextdefsym);
+  lambchop_info(logger, "nextdefsym = %u\n", command->nextdefsym);
+  lambchop_info(logger, "iundefsym = %u\n", command->iundefsym);
+  lambchop_info(logger, "nundefsym = %u\n", command->nundefsym);
+  lambchop_info(logger, "tocoff = %u\n", command->tocoff);
+  lambchop_info(logger, "ntoc = %u\n", command->ntoc);
+  lambchop_info(logger, "modtaboff = %u\n", command->modtaboff);
+  lambchop_info(logger, "nmodtab = %u\n", command->nmodtab);
+  lambchop_info(logger, "extrefsymoff = %u\n", command->extrefsymoff);
+  lambchop_info(logger, "nextrefsyms = %u\n", command->nextrefsyms);
+  lambchop_info(logger, "indirectsymoff = %u\n", command->indirectsymoff);
+  lambchop_info(logger, "nindirectsyms = %u\n", command->nindirectsyms);
+  lambchop_info(logger, "extreloff = %u\n", command->extreloff);
+  lambchop_info(logger, "nextrel = %u\n", command->nextrel);
+  lambchop_info(logger, "locreloff = %u\n", command->locreloff);
+  lambchop_info(logger, "nlocrel = %u\n", command->nlocrel);
+  lambchop_info(logger, "------------------------------------------------------------\n");
+  return true;
+}
+
+bool lc_dump_load_dylinker(struct dylinker_command *command, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- LOAD DYLINKER COMMAND ---------------------\n");
+  lambchop_info(logger, "name = %s\n", ((char*)command) + command->name.offset);
+  lambchop_info(logger, "-----------------------------------------------------------------\n");
+  return true;
+}
+
+bool lc_dump_uuid(struct uuid_command *command, lambchop_logger *logger) {
+  int i;
+  lambchop_info(logger, "--------------------- UUID COMMAND ---------------------\n");
+  lambchop_info(logger, "uuid = ");
+  for (i = 0; i < 16; i++) {
+    lambchop_info(logger, "%02x", command->uuid[i]);
+  }
+  lambchop_info(logger, "\n");
+  lambchop_info(logger, "--------------------------------------------------------\n");
+  return true;
+}
+
+bool lc_dump_version_min_macosx(struct version_min_command *command, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- VERSION MIN MACOSX COMMAND ---------------------\n");
+  lambchop_info(logger, "version = 0x%x\n", command->version);
+  lambchop_info(logger, "sdk = 0x%x\n", command->sdk);
+  lambchop_info(logger, "----------------------------------------------------------------------\n");
+  return true;
+}
+
+bool lc_dump_source_version(struct source_version_command *command, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- SOURCE VERSION COMMAND ---------------------\n");
+  lambchop_info(logger, "version = 0x%x\n", command->version);
+  lambchop_info(logger, "------------------------------------------------------------------\n");
+  return true;
+}
+
+bool lc_dump_main(struct entry_point_command *command, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- MAIN COMMAND ---------------------\n");
+  lambchop_info(logger, "entryoff = 0x%llx\n", command->entryoff);
+  lambchop_info(logger, "stacksize = 0x%llx\n", command->stacksize);
+  lambchop_info(logger, "--------------------------------------------------------\n");
+  return true;
+}
+
+bool lc_dump_load_dylib(struct dylib_command *command, lambchop_logger *logger) {
+  struct dylib *dylib = &command->dylib;
+  lambchop_info(logger, "--------------------- LOAD DYLIB COMMAND ---------------------\n");
+  lambchop_info(logger, "name = %s\n", ((char*)command) + dylib->name.offset);
+  lambchop_info(logger, "timestamp = %u\n", dylib->timestamp);
+  lambchop_info(logger, "current_version = 0x%x\n", dylib->current_version);
+  lambchop_info(logger, "compatibility_version = 0x%x\n", dylib->compatibility_version);
+  lambchop_info(logger, "--------------------------------------------------------------\n");
+  return true;
+}
+
+bool lc_dump_function_starts(struct linkedit_data_command *command, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- FUNCTION STARTS COMMAND ---------------------\n");
+  lambchop_info(logger, "dataoff = %u\n", command->dataoff);
+  lambchop_info(logger, "datasize = %u\n", command->datasize);
+  lambchop_info(logger, "-------------------------------------------------------------------\n");
+  return true;
+}
+
+bool lc_dump_data_in_code(struct linkedit_data_command *command, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- DATA IN CODE COMMAND ---------------------\n");
+  lambchop_info(logger, "dataoff = %u\n", command->dataoff);
+  lambchop_info(logger, "datasize = %u\n", command->datasize);
+  lambchop_info(logger, "----------------------------------------------------------------\n");
+  return true;
+}
+
+bool lc_dump_dylib_code_sign_drs(struct linkedit_data_command *command, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- DYLIB CODE SIGN DRS COMMAND ---------------------\n");
+  lambchop_info(logger, "dataoff = %u\n", command->dataoff);
+  lambchop_info(logger, "datasize = %u\n", command->datasize);
+  lambchop_info(logger, "-----------------------------------------------------------------------\n");
+  return true;
+}
+
 static bool lc_dump(struct load_command *command, lambchop_logger *logger) {
   switch(command->cmd) {
     case LC_SEGMENT_64:
       return lc_dump_segment_64((struct segment_command_64*)command, logger);
+    case LC_DYLD_INFO_ONLY:
+      return lc_dump_dyld_info_only((struct dyld_info_command*)command, logger);
+    case LC_SYMTAB:
+      return lc_dump_symtab((struct symtab_command*)command, logger);
+    case LC_DYSYMTAB:
+      return lc_dump_dysymtab((struct dysymtab_command*)command, logger);
+    case LC_LOAD_DYLINKER:
+      return lc_dump_load_dylinker((struct dylinker_command*)command, logger);
+    case LC_UUID:
+      return lc_dump_uuid((struct uuid_command*)command, logger);
+    case LC_VERSION_MIN_MACOSX:
+      return lc_dump_version_min_macosx((struct version_min_command*)command, logger);
+    case LC_SOURCE_VERSION:
+      return lc_dump_source_version((struct source_version_command*)command, logger);
+    case LC_MAIN:
+      return lc_dump_main((struct entry_point_command*)command, logger);
+    case LC_LOAD_DYLIB:
+      return lc_dump_load_dylib((struct dylib_command*)command, logger);
+    case LC_FUNCTION_STARTS:
+      return lc_dump_function_starts((struct linkedit_data_command*)command, logger);
+    case LC_DATA_IN_CODE:
+      return lc_dump_data_in_code((struct linkedit_data_command*)command, logger);
+    case LC_DYLIB_CODE_SIGN_DRS:
+      return lc_dump_dylib_code_sign_drs((struct linkedit_data_command*)command, logger);
     default:
       lambchop_err(logger, "unexpected load command: 0x%x\n", command->cmd);
       return false;
