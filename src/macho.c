@@ -61,20 +61,110 @@ static bool lc_dump_segment_64(struct segment_command_64 *command, char *img, la
   return true;
 }
 
+static const char *rebase_type(uint8_t immediate) {
+  switch(immediate) {
+    case REBASE_TYPE_POINTER:
+      return "REBASE_TYPE_POINTER";
+    case REBASE_TYPE_TEXT_ABSOLUTE32:
+      return "REBASE_TYPE_TEXT_ABSOLUTE32";
+    case REBASE_TYPE_TEXT_PCREL32:
+      return "REBASE_TYPE_TEXT_PCREL32";
+    default:
+      return NULL;
+  }
+}
+
+static uint64_t parse_sleb128(char **pp) {
+  char *p = *pp;
+  int base;
+  uint64_t res = 0;
+  for (base = 1;; base *= 127) {
+    res += (*p & ~0x80) * base;
+    p++;
+    if ((*p & 0x80) == 0) {
+      *pp = p;
+      return res;
+    }
+  }
+}
+
+static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *img, lambchop_logger *logger) {
+  char *rebase_info = img + command->rebase_off;
+  char *p = rebase_info;
+  int i;
+  while (p < (rebase_info + command->rebase_size)) {
+    uint8_t opcode = *p & REBASE_OPCODE_MASK;
+    uint8_t immediate = *p & REBASE_IMMEDIATE_MASK;
+    uint64_t offset;
+    const char *type;
+    p++;
+    switch(opcode) {
+      case REBASE_OPCODE_DONE:
+        return true;
+      case REBASE_OPCODE_SET_TYPE_IMM:
+        /*REBASE_TYPE_POINTER: ポインタの中身を書き換える*/
+        type = rebase_type(immediate);
+        if (!type) {
+          lambchop_err(logger, "unsupported rebase type 0x%x\n", immediate);
+          return false;
+        }
+        lambchop_info(logger, "rebase_info: op=REBASE_OPCODE_SET_TYPE_IMM type=%s\n", type);
+        break;
+      case REBASE_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB:
+        /*
+         * どのセグメントのどのオフセットを書き換えるかを指定する。
+         * この命令ではセグメントのインデックスを immediate によって与える。
+         * セグメントのインデックスは0から数える。
+         * セグメントのインデックスが2だった場合は3つ目のセグメント。
+         */
+        offset = parse_sleb128(&p);
+        lambchop_info(logger,
+                      "rebase_info: op=REBASE_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB, segment=%u, offset=0x%x\n",
+                      immediate, offset);
+        break;
+      case REBASE_OPCODE_DO_REBASE_IMM_TIMES:
+        /*
+         * 指定した回数 segment の offset の rebase を繰り返す。
+         * 書き換えるべき値は毎回ポインタのサイズ分だけずれる(REBASE_TYPE_POINTER の場合)。
+         * segment や offset には REBASE_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB などで指定された値を用いる。
+         * この命令では繰り返しの回数は immediate によって与えられる。
+         */
+        lambchop_info(logger, "rebase_info: op=REBASE_OPCODE_DO_REBASE_IMM_TIMES, times=%d\n", immediate);
+        break;
+      default:
+        lambchop_err(logger, "unsupported rebase info opcode 0x%x\n", opcode);
+        return false;
+    }
+  }
+  lambchop_err(logger, "REBASE_OPCODE_DONE not found\n");
+  return false;
+}
+
 static bool lc_dump_dyld_info_only(struct dyld_info_command *command, char *img, lambchop_logger *logger) {
   lambchop_info(logger, "--------------------- DYLD INFO ONLY COMMAND ---------------------\n");
-  lambchop_info(logger, "rebase_off = %u\n", command->rebase_off);
+  lambchop_info(logger, "rebase_off = 0x%x\n", command->rebase_off);
   lambchop_info(logger, "rebase_size = %u\n", command->rebase_size);
-  lambchop_info(logger, "bind_off = %u\n", command->bind_off);
+  lambchop_info(logger, "bind_off = 0x%x\n", command->bind_off);
   lambchop_info(logger, "bind_size = %u\n", command->bind_size);
-  lambchop_info(logger, "weak_bind_off = %u\n", command->weak_bind_off);
+  lambchop_info(logger, "weak_bind_off = 0x%x\n", command->weak_bind_off);
   lambchop_info(logger, "weak_bind_size = %u\n", command->weak_bind_size);
-  lambchop_info(logger, "lazy_bind_off = %u\n", command->lazy_bind_off);
+  lambchop_info(logger, "lazy_bind_off = 0x%x\n", command->lazy_bind_off);
   lambchop_info(logger, "lazy_bind_size = %u\n", command->lazy_bind_size);
-  lambchop_info(logger, "export_off = %u\n", command->export_off);
+  lambchop_info(logger, "export_off = 0x%x\n", command->export_off);
   lambchop_info(logger, "export_size = %u\n", command->export_size);
+  if (!lc_dump_dyld_rebase_info(command, img, logger)) {
+    int i;
+    for (i = 0; i < command->rebase_size; i++) {
+      char *rebase_info = img + command->rebase_off;
+      lambchop_info(logger, "rebase_info[%d] = 0x%x\n", i, rebase_info[i]);
+    }
+    lambchop_err(logger, "failed to parse rebase info\n");
+    goto err;
+  }
   lambchop_info(logger, "------------------------------------------------------------------\n");
   return true;
+err:
+  return false;
 }
 
 static bool lc_dump_symtab_64(struct symtab_command *command, char *img, lambchop_logger *logger) {
@@ -186,7 +276,7 @@ bool lc_dump_load_dylib(struct dylib_command *command, char *img, lambchop_logge
 
 bool lc_dump_function_starts(struct linkedit_data_command *command, char *img, lambchop_logger *logger) {
   lambchop_info(logger, "--------------------- FUNCTION STARTS COMMAND ---------------------\n");
-  lambchop_info(logger, "dataoff = %u\n", command->dataoff);
+  lambchop_info(logger, "dataoff = 0x%x\n", command->dataoff);
   lambchop_info(logger, "datasize = %u\n", command->datasize);
   lambchop_info(logger, "-------------------------------------------------------------------\n");
   return true;
@@ -194,7 +284,7 @@ bool lc_dump_function_starts(struct linkedit_data_command *command, char *img, l
 
 bool lc_dump_data_in_code(struct linkedit_data_command *command, char *img, lambchop_logger *logger) {
   lambchop_info(logger, "--------------------- DATA IN CODE COMMAND ---------------------\n");
-  lambchop_info(logger, "dataoff = %u\n", command->dataoff);
+  lambchop_info(logger, "dataoff = 0x%x\n", command->dataoff);
   lambchop_info(logger, "datasize = %u\n", command->datasize);
   lambchop_info(logger, "----------------------------------------------------------------\n");
   return true;
@@ -202,7 +292,7 @@ bool lc_dump_data_in_code(struct linkedit_data_command *command, char *img, lamb
 
 bool lc_dump_dylib_code_sign_drs(struct linkedit_data_command *command, char *img, lambchop_logger *logger) {
   lambchop_info(logger, "--------------------- DYLIB CODE SIGN DRS COMMAND ---------------------\n");
-  lambchop_info(logger, "dataoff = %u\n", command->dataoff);
+  lambchop_info(logger, "dataoff = 0x%x\n", command->dataoff);
   lambchop_info(logger, "datasize = %u\n", command->datasize);
   lambchop_info(logger, "-----------------------------------------------------------------------\n");
   return true;
