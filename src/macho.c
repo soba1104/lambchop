@@ -5,6 +5,7 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <math.h>
 
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
@@ -74,7 +75,20 @@ static const char *rebase_type(uint8_t immediate) {
   }
 }
 
-static uint64_t parse_sleb128(char **pp) {
+static const char *bind_type(uint8_t immediate) {
+  switch(immediate) {
+    case BIND_TYPE_POINTER:
+      return "BIND_TYPE_POINTER";
+    case BIND_TYPE_TEXT_ABSOLUTE32:
+      return "BIND_TYPE_TEXT_ABSOLUTE32";
+    case BIND_TYPE_TEXT_PCREL32:
+      return "BIND_TYPE_TEXT_PCREL32";
+    default:
+      return NULL;
+  }
+}
+
+static uint64_t parse_uleb128(char **pp) {
   char *p = *pp;
   int base;
   uint64_t res = 0;
@@ -86,6 +100,18 @@ static uint64_t parse_sleb128(char **pp) {
       return res;
     }
   }
+}
+
+static int64_t parse_sleb128(char **pp) {
+  char *s, *e;
+  uint64_t uleb;
+  int n;
+
+  s = *pp;
+  uleb = parse_uleb128(pp);
+  e = *pp;
+  n = e - s;
+  return (int64_t)(uleb - pow(128, n));
 }
 
 static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *img, lambchop_logger *logger) {
@@ -117,7 +143,7 @@ static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *im
          * セグメントのインデックスは0から数える。
          * セグメントのインデックスが2だった場合は3つ目のセグメント。
          */
-        offset = parse_sleb128(&p);
+        offset = parse_uleb128(&p);
         lambchop_info(logger,
                       "rebase_info: op=REBASE_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB, segment=%u, offset=0x%x\n",
                       immediate, offset);
@@ -140,6 +166,59 @@ static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *im
   return false;
 }
 
+static bool lc_dump_dyld_bind_info(struct dyld_info_command *command, char *img, lambchop_logger *logger) {
+  char *bind_info = img + command->bind_off;
+  char *p = bind_info;
+  while (p < (bind_info + command->bind_size)) {
+    uint8_t opcode = *p & BIND_OPCODE_MASK;
+    uint8_t immediate = *p & BIND_IMMEDIATE_MASK;
+    const char *type;
+    int64_t sleb;
+    uint64_t uleb;
+    p++;
+    switch(opcode) {
+      case BIND_OPCODE_DONE:
+        return true;
+      case BIND_OPCODE_SET_DYLIB_ORDINAL_IMM:
+        lambchop_info(logger, "bind_info: op=BIND_OPCODE_SET_DYLIB_ORDINAL_IMM ordinal=%d\n", immediate);
+        break;
+      case BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM:
+        if (immediate) {
+          lambchop_err(logger, "unsupported bind flags 0x%x\n", immediate);
+          return false;
+        }
+        lambchop_info(logger,
+                      "bind_info: op=BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM flags=0x%x, symbol = %s\n",
+                      immediate, p);
+        p += strlen(p) + 1;
+        break;
+      case BIND_OPCODE_SET_TYPE_IMM:
+        type = bind_type(immediate);
+        if (!type) {
+          lambchop_err(logger, "unsupported bind type 0x%x\n", immediate);
+          return false;
+        }
+        lambchop_info(logger, "bind_info: op=BIND_OPCODE_SET_TYPE_IMM type=%s\n", type);
+        break;
+      case BIND_OPCODE_SET_ADDEND_SLEB:
+        sleb = parse_sleb128(&p);
+        lambchop_info(logger, "bind_info: op=BIND_OPCODE_SET_ADDEND_SLEB addend=%lld\n", sleb);
+        break;
+      case BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB:
+        uleb = parse_uleb128(&p);
+        lambchop_info(logger,
+                      "bind_info: op=BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB segment=%d offset=0x%x\n",
+                      immediate, uleb);
+        break;
+      default:
+        lambchop_err(logger, "unsupported bind info opcode 0x%x\n", opcode);
+        return false;
+    }
+  }
+  lambchop_err(logger, "BIND_OPCODE_DONE not found\n");
+  return false;
+}
+
 static bool lc_dump_dyld_info_only(struct dyld_info_command *command, char *img, lambchop_logger *logger) {
   lambchop_info(logger, "--------------------- DYLD INFO ONLY COMMAND ---------------------\n");
   lambchop_info(logger, "rebase_off = 0x%x\n", command->rebase_off);
@@ -153,12 +232,11 @@ static bool lc_dump_dyld_info_only(struct dyld_info_command *command, char *img,
   lambchop_info(logger, "export_off = 0x%x\n", command->export_off);
   lambchop_info(logger, "export_size = %u\n", command->export_size);
   if (!lc_dump_dyld_rebase_info(command, img, logger)) {
-    int i;
-    for (i = 0; i < command->rebase_size; i++) {
-      char *rebase_info = img + command->rebase_off;
-      lambchop_info(logger, "rebase_info[%d] = 0x%x\n", i, rebase_info[i]);
-    }
     lambchop_err(logger, "failed to parse rebase info\n");
+    goto err;
+  }
+  if (!lc_dump_dyld_bind_info(command, img, logger)) {
+    lambchop_err(logger, "failed to parse bind info\n");
     goto err;
   }
   lambchop_info(logger, "------------------------------------------------------------------\n");
