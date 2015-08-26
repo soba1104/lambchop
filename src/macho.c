@@ -228,6 +228,11 @@ static bool lc_dump_dyld_bind_info(uint32_t offset, uint32_t size, char *img, la
   return false;
 }
 
+static bool lc_dump_dyld_export_info(struct dyld_info_command *command, char *img, lambchop_logger *logger) {
+  // TODO
+  return true;
+}
+
 static bool lc_dump_dyld_info_only(struct dyld_info_command *command, char *img, lambchop_logger *logger) {
   lambchop_info(logger, "--------------------- DYLD INFO ONLY COMMAND ---------------------\n");
   lambchop_info(logger, "rebase_off = 0x%x\n", command->rebase_off);
@@ -258,6 +263,11 @@ static bool lc_dump_dyld_info_only(struct dyld_info_command *command, char *img,
   lambchop_info(logger, "########## LAZY BIND INFO ##########\n");
   if (!lc_dump_dyld_bind_info(command->lazy_bind_off, command->lazy_bind_size, img, logger)) {
     lambchop_err(logger, "failed to parse lazy bind info\n");
+    goto err;
+  }
+  lambchop_info(logger, "########## EXPORT INFO ##########\n");
+  if (!lc_dump_dyld_export_info(command, img, logger)) {
+    lambchop_err(logger, "failed to parse export info\n");
     goto err;
   }
   lambchop_info(logger, "------------------------------------------------------------------\n");
