@@ -118,6 +118,9 @@ static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *im
   char *rebase_info = img + command->rebase_off;
   char *p = rebase_info;
   int i;
+  if (!command->rebase_size) {
+    return true;
+  }
   while (p < (rebase_info + command->rebase_size)) {
     uint8_t opcode = *p & REBASE_OPCODE_MASK;
     uint8_t immediate = *p & REBASE_IMMEDIATE_MASK;
@@ -166,10 +169,13 @@ static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *im
   return false;
 }
 
-static bool lc_dump_dyld_bind_info(struct dyld_info_command *command, char *img, lambchop_logger *logger) {
-  char *bind_info = img + command->bind_off;
+static bool lc_dump_dyld_bind_info(uint32_t offset, uint32_t size, char *img, lambchop_logger *logger) {
+  char *bind_info = img + offset;
   char *p = bind_info;
-  while (p < (bind_info + command->bind_size)) {
+  if (!size) {
+    return true;
+  }
+  while (p < (bind_info + size)) {
     uint8_t opcode = *p & BIND_OPCODE_MASK;
     uint8_t immediate = *p & BIND_IMMEDIATE_MASK;
     const char *type;
@@ -210,6 +216,9 @@ static bool lc_dump_dyld_bind_info(struct dyld_info_command *command, char *img,
                       "bind_info: op=BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB segment=%d offset=0x%x\n",
                       immediate, uleb);
         break;
+      case BIND_OPCODE_DO_BIND:
+        lambchop_info(logger, "bind_info: op=BIND_OPCODE_DO_BIND\n");
+        break;
       default:
         lambchop_err(logger, "unsupported bind info opcode 0x%x\n", opcode);
         return false;
@@ -231,12 +240,24 @@ static bool lc_dump_dyld_info_only(struct dyld_info_command *command, char *img,
   lambchop_info(logger, "lazy_bind_size = %u\n", command->lazy_bind_size);
   lambchop_info(logger, "export_off = 0x%x\n", command->export_off);
   lambchop_info(logger, "export_size = %u\n", command->export_size);
+  lambchop_info(logger, "########## REBASE INFO ##########\n");
   if (!lc_dump_dyld_rebase_info(command, img, logger)) {
     lambchop_err(logger, "failed to parse rebase info\n");
     goto err;
   }
-  if (!lc_dump_dyld_bind_info(command, img, logger)) {
+  lambchop_info(logger, "########## BIND INFO ##########\n");
+  if (!lc_dump_dyld_bind_info(command->bind_off, command->bind_size, img, logger)) {
     lambchop_err(logger, "failed to parse bind info\n");
+    goto err;
+  }
+  lambchop_info(logger, "########## WEAK BIND INFO ##########\n");
+  if (!lc_dump_dyld_bind_info(command->weak_bind_off, command->weak_bind_size, img, logger)) {
+    lambchop_err(logger, "failed to parse weak bind info\n");
+    goto err;
+  }
+  lambchop_info(logger, "########## LAZY BIND INFO ##########\n");
+  if (!lc_dump_dyld_bind_info(command->lazy_bind_off, command->lazy_bind_size, img, logger)) {
+    lambchop_err(logger, "failed to parse lazy bind info\n");
     goto err;
   }
   lambchop_info(logger, "------------------------------------------------------------------\n");
