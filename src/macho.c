@@ -261,7 +261,7 @@ static bool lc_dump_dyld_bind_info(uint32_t offset, uint32_t size, char *img, la
     uint8_t immediate = *p & BIND_IMMEDIATE_MASK;
     const char *type;
     int64_t sleb;
-    uint64_t uleb;
+    uint64_t uleb, uleb2;
     p++;
     switch(opcode) {
       case BIND_OPCODE_DONE:
@@ -269,11 +269,11 @@ static bool lc_dump_dyld_bind_info(uint32_t offset, uint32_t size, char *img, la
       case BIND_OPCODE_SET_DYLIB_ORDINAL_IMM:
         lambchop_info(logger, "bind_info: op=BIND_OPCODE_SET_DYLIB_ORDINAL_IMM ordinal=%d\n", immediate);
         break;
+      case BIND_OPCODE_SET_DYLIB_ORDINAL_ULEB:
+        uleb = parse_uleb128(&p);
+        lambchop_info(logger, "bind_info: op=BIND_OPCODE_SET_DYLIB_ORDINAL_ULEB ordinal=%d\n", uleb);
+        break;
       case BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM:
-        if (immediate) {
-          lambchop_err(logger, "unsupported bind flags 0x%x\n", immediate);
-          return false;
-        }
         lambchop_info(logger,
                       "bind_info: op=BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM flags=0x%x, symbol = %s\n",
                       immediate, p);
@@ -297,12 +297,26 @@ static bool lc_dump_dyld_bind_info(uint32_t offset, uint32_t size, char *img, la
                       "bind_info: op=BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB segment=%d offset=0x%x\n",
                       immediate, uleb);
         break;
+      case BIND_OPCODE_ADD_ADDR_ULEB:
+        uleb = parse_uleb128(&p);
+        lambchop_info(logger, "bind_info: op=BIND_OPCODE_ADD_ADDR_ULEB offset=0x%x\n", uleb);
+        break;
       case BIND_OPCODE_DO_BIND:
         lambchop_info(logger, "bind_info: op=BIND_OPCODE_DO_BIND\n");
         break;
       case BIND_OPCODE_DO_BIND_ADD_ADDR_ULEB:
         uleb = parse_uleb128(&p);
         lambchop_info(logger, "bind_info: op=BIND_OPCODE_DO_BIND_ADD_ADDR_ULEB offset=0x%x\n", uleb);
+        break;
+      case BIND_OPCODE_DO_BIND_ADD_ADDR_IMM_SCALED:
+        lambchop_info(logger, "bind_info: op=BIND_OPCODE_DO_BIND_ADD_ADDR_IMM_SCALED offset=0x%x\n", immediate);
+        break;
+      case BIND_OPCODE_DO_BIND_ULEB_TIMES_SKIPPING_ULEB:
+        uleb = parse_uleb128(&p);
+        uleb2 = parse_uleb128(&p);
+        lambchop_info(logger,
+                      "bind_info: op=BIND_OPCODE_DO_BIND_ULEB_TIMES_SKIPPING_ULEB, times=%d, offset=0x%x\n",
+                      uleb, uleb2);
         break;
       default:
         lambchop_err(logger, "unsupported bind info opcode 0x%x\n", opcode);
