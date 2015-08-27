@@ -139,17 +139,17 @@ static const char *bind_type(uint8_t immediate) {
 }
 
 static uint64_t parse_uleb128(char **pp) {
-  uint8_t *p = (uint8_t*)(*pp);
+  char *p = *pp;
   uint64_t base;
   uint64_t res = 0;
   for (base = 1;; base *= 127) {
-    res += (*p & ~0x80) * base;
-    if ((*p & 0x80) == 0) {
-      p++;
-      *pp = (char*)p;
+    uint8_t v = (uint8_t)(*p);
+    res += (v & ~0x80) * base;
+    p++;
+    if ((v & 0x80) == 0) {
+      *pp = p;
       return res;
     }
-    p++;
   }
 }
 
