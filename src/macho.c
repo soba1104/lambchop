@@ -375,6 +375,30 @@ err:
   return false;
 }
 
+static bool lc_dump_symtab_32(struct symtab_command *command, char *img, lambchop_logger *logger) {
+  struct nlist *symbol_table = (struct nlist*)(img + command->symoff);
+  char *string_table = img + command->stroff;
+  int i;
+  lambchop_info(logger, "--------------------- SYMTAB COMMAND ---------------------\n");
+  lambchop_info(logger, "symoff = 0x%x\n", command->symoff);
+  lambchop_info(logger, "nsyms = %u\n", command->nsyms);
+  lambchop_info(logger, "stroff = 0x%x\n", command->stroff);
+  lambchop_info(logger, "strsize = %u\n", command->strsize);
+  for (i = 0; i < command->nsyms; i++) {
+    struct nlist *list = &symbol_table[i];
+    char *sym = list->n_un.n_strx ? string_table + list->n_un.n_strx : "\"\"";
+    uint8_t type = list->n_type;
+    uint8_t sect = list->n_sect;
+    uint16_t desc = list->n_desc;
+    uint32_t value = list->n_value;
+    lambchop_info(logger,
+                  "%d: name = %s, type = 0x%x, sect = %d, desc = 0x%x, value = 0x%x\n",
+                  i, sym, type, sect, desc, value);
+  }
+  lambchop_info(logger, "----------------------------------------------------------\n");
+  return true;
+}
+
 static bool lc_dump_symtab_64(struct symtab_command *command, char *img, lambchop_logger *logger) {
   struct nlist_64 *symbol_table = (struct nlist_64*)(img + command->symoff);
   char *string_table = img + command->stroff;
@@ -390,12 +414,19 @@ static bool lc_dump_symtab_64(struct symtab_command *command, char *img, lambcho
     uint8_t type = list->n_type;
     uint8_t sect = list->n_sect;
     uint16_t desc = list->n_desc;
-    uint32_t value = list->n_value;
+    uint64_t value = list->n_value;
     lambchop_info(logger,
                   "%d: name = %s, type = 0x%x, sect = %d, desc = 0x%x, value = 0x%x\n",
                   i, sym, type, sect, desc, value);
   }
   lambchop_info(logger, "----------------------------------------------------------\n");
+  return true;
+}
+
+static bool lc_dump_unixthread(struct thread_command *command, char *img, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- UNIXTHREAD COMMAND ---------------------\n");
+  // TODO
+  lambchop_info(logger, "--------------------------------------------------------------\n");
   return true;
 }
 
@@ -506,6 +537,14 @@ bool lc_dump_dylib_code_sign_drs(struct linkedit_data_command *command, char *im
   return true;
 }
 
+bool lc_dump_code_signature(struct linkedit_data_command *command, char *img, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- CODE SIGNATURE COMMAND ---------------------\n");
+  lambchop_info(logger, "dataoff = 0x%x\n", command->dataoff);
+  lambchop_info(logger, "datasize = %u\n", command->datasize);
+  lambchop_info(logger, "------------------------------------------------------------------\n");
+  return true;
+}
+
 static bool lc_dump(struct load_command *command, char *img, bool is32, lambchop_logger *logger) {
   switch(command->cmd) {
     case LC_SEGMENT:
@@ -515,7 +554,13 @@ static bool lc_dump(struct load_command *command, char *img, bool is32, lambchop
     case LC_DYLD_INFO_ONLY:
       return lc_dump_dyld_info_only((struct dyld_info_command*)command, img, logger);
     case LC_SYMTAB:
-      return lc_dump_symtab_64((struct symtab_command*)command, img, logger);
+      if (is32) {
+        return lc_dump_symtab_32((struct symtab_command*)command, img, logger);
+      } else {
+        return lc_dump_symtab_64((struct symtab_command*)command, img, logger);
+      }
+    case LC_UNIXTHREAD:
+      return lc_dump_unixthread((struct thread_command*)command, img, logger);
     case LC_DYSYMTAB:
       return lc_dump_dysymtab((struct dysymtab_command*)command, img, logger);
     case LC_LOAD_DYLINKER:
@@ -536,6 +581,8 @@ static bool lc_dump(struct load_command *command, char *img, bool is32, lambchop
       return lc_dump_data_in_code((struct linkedit_data_command*)command, img, logger);
     case LC_DYLIB_CODE_SIGN_DRS:
       return lc_dump_dylib_code_sign_drs((struct linkedit_data_command*)command, img, logger);
+    case LC_CODE_SIGNATURE:
+      return lc_dump_code_signature((struct linkedit_data_command*)command, img, logger);
     default:
       lambchop_err(logger, "unexpected load command: 0x%x\n", command->cmd);
       return false;
