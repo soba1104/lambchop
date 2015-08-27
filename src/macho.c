@@ -139,16 +139,17 @@ static const char *bind_type(uint8_t immediate) {
 }
 
 static uint64_t parse_uleb128(char **pp) {
-  char *p = *pp;
-  int base;
+  uint8_t *p = (uint8_t*)(*pp);
+  uint64_t base;
   uint64_t res = 0;
   for (base = 1;; base *= 127) {
     res += (*p & ~0x80) * base;
-    p++;
     if ((*p & 0x80) == 0) {
-      *pp = p;
+      p++;
+      *pp = (char*)p;
       return res;
     }
+    p++;
   }
 }
 
@@ -174,7 +175,7 @@ static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *im
   while (p < (rebase_info + command->rebase_size)) {
     uint8_t opcode = *p & REBASE_OPCODE_MASK;
     uint8_t immediate = *p & REBASE_IMMEDIATE_MASK;
-    uint64_t offset;
+    uint64_t uleb;
     const char *type;
     p++;
     switch(opcode) {
@@ -196,10 +197,13 @@ static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *im
          * セグメントのインデックスは0から数える。
          * セグメントのインデックスが2だった場合は3つ目のセグメント。
          */
-        offset = parse_uleb128(&p);
+        uleb = parse_uleb128(&p);
         lambchop_info(logger,
                       "rebase_info: op=REBASE_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB, segment=%u, offset=0x%x\n",
-                      immediate, offset);
+                      immediate, uleb);
+        break;
+      case REBASE_OPCODE_ADD_ADDR_IMM_SCALED:
+        lambchop_info(logger, "rebase_info: op=REBASE_OPCODE_ADD_ADDR_IMM_SCALED, immediate = 0x%x\n", immediate);
         break;
       case REBASE_OPCODE_DO_REBASE_IMM_TIMES:
         /*
@@ -209,6 +213,19 @@ static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *im
          * この命令では繰り返しの回数は immediate によって与えられる。
          */
         lambchop_info(logger, "rebase_info: op=REBASE_OPCODE_DO_REBASE_IMM_TIMES, times=%d\n", immediate);
+        break;
+      case REBASE_OPCODE_DO_REBASE_ULEB_TIMES:
+        uleb = parse_uleb128(&p);
+        lambchop_info(logger, "rebase_info: op=REBASE_OPCODE_DO_REBASE_ULEB_TIMES, times=%d\n", uleb);
+        break;
+      case REBASE_OPCODE_DO_REBASE_ADD_ADDR_ULEB:
+        /*
+         * rebase を実行した後に、uleb でのアドレス加算を行う。
+         */
+        uleb = parse_uleb128(&p);
+        lambchop_info(logger,
+                      "rebase_info: op=REBASE_OPCODE_DO_REBASE_ADD_ADDR_ULEB, immediate=0x%x, offset=0x%x\n",
+                      immediate, uleb);
         break;
       default:
         lambchop_err(logger, "unsupported rebase info opcode 0x%x\n", opcode);
@@ -268,6 +285,10 @@ static bool lc_dump_dyld_bind_info(uint32_t offset, uint32_t size, char *img, la
         break;
       case BIND_OPCODE_DO_BIND:
         lambchop_info(logger, "bind_info: op=BIND_OPCODE_DO_BIND\n");
+        break;
+      case BIND_OPCODE_DO_BIND_ADD_ADDR_ULEB:
+        uleb = parse_uleb128(&p);
+        lambchop_info(logger, "bind_info: op=BIND_OPCODE_DO_BIND_ADD_ADDR_ULEB offset=0x%x\n", uleb);
         break;
       default:
         lambchop_err(logger, "unsupported bind info opcode 0x%x\n", opcode);
