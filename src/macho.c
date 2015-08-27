@@ -425,7 +425,7 @@ bool lc_dump_dylib_code_sign_drs(struct linkedit_data_command *command, char *im
   return true;
 }
 
-static bool lc_dump_64(struct load_command *command, char *img, lambchop_logger *logger) {
+static bool lc_dump(struct load_command *command, char *img, bool is32, lambchop_logger *logger) {
   switch(command->cmd) {
     case LC_SEGMENT_64:
       return lc_dump_segment_64((struct segment_command_64*)command, img, logger);
@@ -459,24 +459,11 @@ static bool lc_dump_64(struct load_command *command, char *img, lambchop_logger 
   }
 }
 
-static bool macho_load_64(char *img, size_t size, lambchop_logger *logger) {
-  char *ptr = img;
-  struct mach_header_64 *hdr;
+static bool macho_load(char *img, uint32_t ncmds, char *ptr, bool is32, lambchop_logger *logger) {
   struct load_command **commands = NULL;
-  uint32_t ncmds, i;
   bool ret = true;
+  int i;
 
-  hdr = (struct mach_header_64*)ptr;
-  ptr += sizeof(struct mach_header_64);
-
-  lambchop_debug(logger, "cputype = %s\n", cputype(hdr->cputype));
-  lambchop_debug(logger, "cpusubtype = 0x%x\n", hdr->cpusubtype);
-  lambchop_debug(logger, "filetype = %s\n", filetype(hdr->filetype));
-  lambchop_debug(logger, "ncmds = %d\n", hdr->ncmds);
-  lambchop_debug(logger, "sizeofcmds = %d\n", hdr->sizeofcmds);
-  lambchop_debug(logger, "flags = 0x%x\n", hdr->flags);
-
-  ncmds = hdr->ncmds;
   commands = malloc(sizeof(struct load_command) * ncmds);
   if (!commands) {
     lambchop_err(logger, "failed to allocate load commands buffer: %s\n", strerror(errno));
@@ -487,7 +474,7 @@ static bool macho_load_64(char *img, size_t size, lambchop_logger *logger) {
     ptr += commands[i]->cmdsize;
   }
   for (i = 0; i < ncmds; i++) {
-    if (!lc_dump_64(commands[i], img, logger)) {
+    if (!lc_dump(commands[i], img, is32, logger)) {
       goto err;
     }
   }
@@ -502,6 +489,23 @@ out:
     free(commands);
   }
   return ret;
+}
+
+static bool macho_load_64(char *img, size_t size, lambchop_logger *logger) {
+  char *ptr = img;
+  struct mach_header_64 *hdr;
+
+  hdr = (struct mach_header_64*)ptr;
+  ptr += sizeof(struct mach_header_64);
+
+  lambchop_debug(logger, "cputype = %s\n", cputype(hdr->cputype));
+  lambchop_debug(logger, "cpusubtype = 0x%x\n", hdr->cpusubtype);
+  lambchop_debug(logger, "filetype = %s\n", filetype(hdr->filetype));
+  lambchop_debug(logger, "ncmds = %d\n", hdr->ncmds);
+  lambchop_debug(logger, "sizeofcmds = %d\n", hdr->sizeofcmds);
+  lambchop_debug(logger, "flags = 0x%x\n", hdr->flags);
+
+  return macho_load(img, hdr->ncmds, ptr, false, logger);
 }
 
 bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger) {
