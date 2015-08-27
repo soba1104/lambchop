@@ -175,7 +175,7 @@ static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *im
   while (p < (rebase_info + command->rebase_size)) {
     uint8_t opcode = *p & REBASE_OPCODE_MASK;
     uint8_t immediate = *p & REBASE_IMMEDIATE_MASK;
-    uint64_t uleb;
+    uint64_t uleb, uleb2;
     const char *type;
     p++;
     switch(opcode) {
@@ -202,6 +202,10 @@ static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *im
                       "rebase_info: op=REBASE_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB, segment=%u, offset=0x%x\n",
                       immediate, uleb);
         break;
+      case REBASE_OPCODE_ADD_ADDR_ULEB:
+        uleb = parse_uleb128(&p);
+        lambchop_info(logger, "rebase_info: op=REBASE_OPCODE_ADD_ADDR_ULEB, offset = 0x%x\n", uleb);
+        break;
       case REBASE_OPCODE_ADD_ADDR_IMM_SCALED:
         lambchop_info(logger, "rebase_info: op=REBASE_OPCODE_ADD_ADDR_IMM_SCALED, immediate = 0x%x\n", immediate);
         break;
@@ -226,6 +230,16 @@ static bool lc_dump_dyld_rebase_info(struct dyld_info_command *command, char *im
         lambchop_info(logger,
                       "rebase_info: op=REBASE_OPCODE_DO_REBASE_ADD_ADDR_ULEB, immediate=0x%x, offset=0x%x\n",
                       immediate, uleb);
+        break;
+      case REBASE_OPCODE_DO_REBASE_ULEB_TIMES_SKIPPING_ULEB:
+        /**
+         * rebase を最初のuleb128回繰り返す。繰り返しの度に次のuleb128回オフセットをずらす。
+         */
+        uleb = parse_uleb128(&p);
+        uleb2 = parse_uleb128(&p);
+        lambchop_info(logger,
+                      "rebase_info: op=REBASE_OPCODE_DO_REBASE_ULEB_TIMES_SKIPPING_ULEB, times=%d, offset=0x%x\n",
+                      uleb, uleb2);
         break;
       default:
         lambchop_err(logger, "unsupported rebase info opcode 0x%x\n", opcode);
