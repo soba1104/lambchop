@@ -47,6 +47,38 @@ static const char *filetype(uint32_t filetype) {
   }
 }
 
+static bool lc_dump_segment_32(struct segment_command *command, char *img, lambchop_logger *logger) {
+  int i;
+  lambchop_info(logger, "--------------------- SEGMENT COMMAND 64 ---------------------\n");
+  lambchop_info(logger, "segname = %s\n", command->segname);
+  lambchop_info(logger, "vmaddr = 0x%x\n", command->vmaddr);
+  lambchop_info(logger, "vmsize = %u\n", command->vmsize);
+  lambchop_info(logger, "fileoff = %u\n", command->fileoff);
+  lambchop_info(logger, "filesize = %u\n", command->filesize);
+  lambchop_info(logger, "maxprot = %u\n", command->maxprot);
+  lambchop_info(logger, "initprot = %u\n", command->initprot);
+  lambchop_info(logger, "nsects = %u\n", command->nsects);
+  lambchop_info(logger, "flags = 0x%x\n", command->flags);
+  for (i = 0; i < command->nsects; i++) {
+    struct section *sections = (struct section*)(command+1);
+    struct section *section = &sections[i];
+    lambchop_info(logger,
+                  "############### section[%d]: %s(%s) ###############\n",
+                  i, section->sectname, section->segname);
+    lambchop_info(logger, "addr = 0x%llx\n", section->addr);
+    lambchop_info(logger, "size = %llu\n", section->size);
+    lambchop_info(logger, "offset = 0x%x\n", section->offset);
+    lambchop_info(logger, "align = 0x%x\n", section->align);
+    lambchop_info(logger, "reloff = 0x%x\n", section->reloff);
+    lambchop_info(logger, "nreloc = %u\n", section->nreloc);
+    lambchop_info(logger, "flags = 0x%x\n", section->flags);
+    lambchop_info(logger, "reserved1 = 0x%x\n", section->reserved1);
+    lambchop_info(logger, "reserved2 = 0x%x\n", section->reserved2);
+  }
+  lambchop_info(logger, "--------------------------------------------------------------\n");
+  return true;
+}
+
 static bool lc_dump_segment_64(struct segment_command_64 *command, char *img, lambchop_logger *logger) {
   int i;
   lambchop_info(logger, "--------------------- SEGMENT COMMAND 64 ---------------------\n");
@@ -427,6 +459,8 @@ bool lc_dump_dylib_code_sign_drs(struct linkedit_data_command *command, char *im
 
 static bool lc_dump(struct load_command *command, char *img, bool is32, lambchop_logger *logger) {
   switch(command->cmd) {
+    case LC_SEGMENT:
+      return lc_dump_segment_32((struct segment_command*)command, img, logger);
     case LC_SEGMENT_64:
       return lc_dump_segment_64((struct segment_command_64*)command, img, logger);
     case LC_DYLD_INFO_ONLY:
@@ -508,14 +542,32 @@ static bool macho_load_64(char *img, size_t size, lambchop_logger *logger) {
   return macho_load(img, hdr->ncmds, ptr, false, logger);
 }
 
+static bool macho_load_32(char *img, size_t size, lambchop_logger *logger) {
+  char *ptr = img;
+  struct mach_header *hdr;
+
+  hdr = (struct mach_header*)ptr;
+  ptr += sizeof(struct mach_header);
+
+  lambchop_debug(logger, "cputype = %s\n", cputype(hdr->cputype));
+  lambchop_debug(logger, "cpusubtype = 0x%x\n", hdr->cpusubtype);
+  lambchop_debug(logger, "filetype = %s\n", filetype(hdr->filetype));
+  lambchop_debug(logger, "ncmds = %d\n", hdr->ncmds);
+  lambchop_debug(logger, "sizeofcmds = %d\n", hdr->sizeofcmds);
+  lambchop_debug(logger, "flags = 0x%x\n", hdr->flags);
+
+  return macho_load(img, hdr->ncmds, ptr, true, logger);
+}
+
 bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger) {
   char *ptr = img;
   uint32_t magic = *(uint32_t*)(img);
 
   lambchop_info(logger, "mach-o load start\n");
   if (magic == MH_MAGIC) {
-    lambchop_err(logger, "cannot handle 32bit binary\n");
-    goto err;
+    if (!macho_load_32(img, size, logger)) {
+      goto err;
+    }
   } else if (magic == MH_MAGIC_64) {
     if (!macho_load_64(img, size, logger)) {
       goto err;
