@@ -48,6 +48,7 @@ static const char *filetype(uint32_t filetype) {
 }
 
 static bool lc_dump_segment_64(struct segment_command_64 *command, char *img, lambchop_logger *logger) {
+  int i;
   lambchop_info(logger, "--------------------- SEGMENT COMMAND 64 ---------------------\n");
   lambchop_info(logger, "segname = %s\n", command->segname);
   lambchop_info(logger, "vmaddr = 0x%llx\n", command->vmaddr);
@@ -58,6 +59,23 @@ static bool lc_dump_segment_64(struct segment_command_64 *command, char *img, la
   lambchop_info(logger, "initprot = %u\n", command->initprot);
   lambchop_info(logger, "nsects = %u\n", command->nsects);
   lambchop_info(logger, "flags = 0x%x\n", command->flags);
+  for (i = 0; i < command->nsects; i++) {
+    struct section_64 *sections = (struct section_64*)(command+1);
+    struct section_64 *section = &sections[i];
+    lambchop_info(logger,
+                  "############### section[%d]: %s(%s) ###############\n",
+                  i, section->sectname, section->segname);
+    lambchop_info(logger, "addr = 0x%llx\n", section->addr);
+    lambchop_info(logger, "size = %llu\n", section->size);
+    lambchop_info(logger, "offset = 0x%x\n", section->offset);
+    lambchop_info(logger, "align = 0x%x\n", section->align);
+    lambchop_info(logger, "reloff = 0x%x\n", section->reloff);
+    lambchop_info(logger, "nreloc = %u\n", section->nreloc);
+    lambchop_info(logger, "flags = 0x%x\n", section->flags);
+    lambchop_info(logger, "reserved1 = 0x%x\n", section->reserved1);
+    lambchop_info(logger, "reserved2 = 0x%x\n", section->reserved2);
+    lambchop_info(logger, "reserved3 = 0x%x\n", section->reserved3);
+  }
   lambchop_info(logger, "--------------------------------------------------------------\n");
   return true;
 }
