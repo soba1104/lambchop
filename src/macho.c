@@ -356,9 +356,45 @@ static bool lc_dump_dyld_bind_info(uint32_t offset, uint32_t size, char *img, la
   return false;
 }
 
-static bool lc_dump_dyld_export_info(struct dyld_info_command *command, char *img, lambchop_logger *logger) {
-  // TODO
+static bool lc_dump_dyld_export_trie(char *trie, char *p, char *buf, uint32_t bufidx, uint32_t bufsize, lambchop_logger *logger) {
+  uint64_t infolen = parse_uleb128(&p);
+  uint8_t children;
+  int i;
+
+  if (infolen) {
+    uint64_t flags = parse_uleb128(&p);
+    uint64_t address;
+    if (flags != EXPORT_SYMBOL_FLAGS_KIND_REGULAR) {
+      lambchop_err(logger, "unsupported export trie: infolen = %llu, flags = %llx\n", infolen, flags);
+      return false;
+    }
+    address = parse_uleb128(&p);
+    buf[bufidx] = '\0';
+    lambchop_info(logger, "export_info: symbol = %s, address = %llx\n", buf, address);
+  }
+  children = (uint8_t)(*p);
+  p++;
+  for (i = 0; i < children; i++) {
+    int len = strlen(p);
+    int offset;
+    // TODO check bufsize
+    memcpy(buf + bufidx, p, len);
+    p += len + 1;
+    offset = parse_uleb128(&p);
+    if (!lc_dump_dyld_export_trie(trie, trie + offset, buf, bufidx + len, bufsize, logger)) {
+      return false;
+    }
+  }
   return true;
+}
+
+static bool lc_dump_dyld_export_info(struct dyld_info_command *command, char *img, lambchop_logger *logger) {
+  uint32_t offset = command->export_off;
+  uint32_t size = command->export_size;
+  char buf[1024];
+  uint32_t bufsize = sizeof(buf);
+  char *trie = img + offset;
+  return lc_dump_dyld_export_trie(trie, trie, buf, 0, bufsize, logger);
 }
 
 static bool lc_dump_dyld_info_only(struct dyld_info_command *command, char *img, lambchop_logger *logger) {
