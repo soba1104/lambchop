@@ -47,6 +47,29 @@ static const char *filetype(uint32_t filetype) {
   }
 }
 
+static const char *section_type(uint32_t type) {
+  switch(type) {
+    case S_REGULAR:
+      return "S_REGULAR";
+    case S_ZEROFILL:
+      return "S_ZEROFILL";
+    case S_CSTRING_LITERALS:
+      return "S_CSTRING_LITERALS";
+    case S_LITERAL_POINTERS:
+      return "S_LITERAL_POINTERS";
+    case S_NON_LAZY_SYMBOL_POINTERS:
+      return "S_NON_LAZY_SYMBOL_POINTERS";
+    case S_LAZY_SYMBOL_POINTERS:
+      return "S_LAZY_SYMBOL_POINTERS";
+    case S_SYMBOL_STUBS:
+      return "S_SYMBOL_STUBS";
+    case S_MOD_INIT_FUNC_POINTERS:
+      return "S_MOD_INIT_FUNC_POINTERS";
+    default:
+      return NULL;
+  }
+}
+
 static bool lc_dump_segment_32(struct segment_command *command, char *img, lambchop_logger *logger) {
   int i;
   lambchop_info(logger, "--------------------- SEGMENT COMMAND 64 ---------------------\n");
@@ -62,9 +85,14 @@ static bool lc_dump_segment_32(struct segment_command *command, char *img, lambc
   for (i = 0; i < command->nsects; i++) {
     struct section *sections = (struct section*)(command+1);
     struct section *section = &sections[i];
+    const char *type = section_type(section->flags & SECTION_TYPE);
     lambchop_info(logger,
                   "############### section[%d]: %s(%s) ###############\n",
                   i, section->sectname, section->segname);
+    if (!type) {
+      lambchop_err(logger, "unknown section type 0x%x\n", section->flags & SECTION_TYPE);
+      return false;
+    }
     lambchop_info(logger, "addr = 0x%llx\n", section->addr);
     lambchop_info(logger, "size = %llu\n", section->size);
     lambchop_info(logger, "offset = 0x%x\n", section->offset);
@@ -72,6 +100,7 @@ static bool lc_dump_segment_32(struct segment_command *command, char *img, lambc
     lambchop_info(logger, "reloff = 0x%x\n", section->reloff);
     lambchop_info(logger, "nreloc = %u\n", section->nreloc);
     lambchop_info(logger, "flags = 0x%x\n", section->flags);
+    lambchop_info(logger, "type = %s\n", type);
     lambchop_info(logger, "reserved1 = 0x%x\n", section->reserved1);
     lambchop_info(logger, "reserved2 = 0x%x\n", section->reserved2);
   }
