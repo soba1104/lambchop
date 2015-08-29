@@ -171,7 +171,7 @@ static uint64_t parse_uleb128(char **pp) {
   char *p = *pp;
   uint64_t base;
   uint64_t res = 0;
-  for (base = 1;; base *= 127) {
+  for (base = 1;; base *= 128) {
     uint8_t v = (uint8_t)(*p);
     res += (v & ~0x80) * base;
     p++;
@@ -362,21 +362,33 @@ static bool lc_dump_dyld_export_trie(char *trie, char *p, char *buf, uint32_t bu
   int i;
 
   if (infolen) {
+    char *q = p + infolen;
     uint64_t flags = parse_uleb128(&p);
     uint64_t address;
-    if (flags != EXPORT_SYMBOL_FLAGS_KIND_REGULAR) {
-      lambchop_err(logger, "unsupported export trie: infolen = %llu, flags = %llx\n", infolen, flags);
+    uint64_t kind = flags & EXPORT_SYMBOL_FLAGS_KIND_MASK;
+    flags &= ~EXPORT_SYMBOL_FLAGS_KIND_MASK;
+    buf[bufidx] = '\0';
+    if (kind == EXPORT_SYMBOL_FLAGS_KIND_REGULAR) {
+      address = parse_uleb128(&p);
+      lambchop_info(logger,
+                    "export_info: infolen = %llu, symbol = %s, flags = 0x%llx, kind=EXPORT_SYMBOL_FLAGS_KIND_REGULAR, address = %llx\n",
+                    infolen, buf, flags, address);
+    } else {
+      lambchop_err(logger,
+                   "unsupported export info: infolen = %llu, symbol = %s, flags = 0x%llx, kind=0x%llx\n",
+                   infolen, buf, flags, kind);
       return false;
     }
-    address = parse_uleb128(&p);
-    buf[bufidx] = '\0';
-    lambchop_info(logger, "export_info: symbol = %s, address = %llx\n", buf, address);
+    if (p != q) {
+      lambchop_err(logger, "failed to parse export trie: infolen = %llu, flags = 0x%llx, kind = 0x%llx\n", infolen, flags, kind);
+      return false;
+    }
   }
   children = (uint8_t)(*p);
   p++;
   for (i = 0; i < children; i++) {
     int len = strlen(p);
-    int offset;
+    uint64_t offset;
     // TODO check bufsize
     memcpy(buf + bufidx, p, len);
     p += len + 1;
