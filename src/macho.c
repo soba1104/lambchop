@@ -70,16 +70,55 @@ static const char *section_type(uint32_t type) {
   }
 }
 
+#define VM_PROT_RWX (VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE)
+#define VM_PROT_RW  (VM_PROT_READ | VM_PROT_WRITE)
+#define VM_PROT_RX  (VM_PROT_READ | VM_PROT_EXECUTE)
+#define VM_PROT_WX  (VM_PROT_WRITE | VM_PROT_EXECUTE)
+
+static const char *vm_prot(vm_prot_t prot) {
+  switch (prot) {
+    case VM_PROT_NONE:
+      return "none";
+    case VM_PROT_RWX:
+     return "rwx";
+    case VM_PROT_RW:
+     return "rw";
+    case VM_PROT_RX:
+     return "rx";
+    case VM_PROT_WX:
+     return "wx";
+    case VM_PROT_READ:
+     return "r";
+    case VM_PROT_WRITE:
+     return "w";
+    case VM_PROT_EXECUTE:
+     return "x";
+    default:
+     return NULL; 
+  }
+}
+
 static bool lc_dump_segment_32(struct segment_command *command, char *img, lambchop_logger *logger) {
   int i;
+  const char *prot;
   lambchop_info(logger, "--------------------- SEGMENT COMMAND 64 ---------------------\n");
   lambchop_info(logger, "segname = %s\n", command->segname);
   lambchop_info(logger, "vmaddr = 0x%x\n", command->vmaddr);
   lambchop_info(logger, "vmsize = %u\n", command->vmsize);
   lambchop_info(logger, "fileoff = %u\n", command->fileoff);
   lambchop_info(logger, "filesize = %u\n", command->filesize);
-  lambchop_info(logger, "maxprot = %u\n", command->maxprot);
-  lambchop_info(logger, "initprot = %u\n", command->initprot);
+  prot = vm_prot(command->maxprot);
+  if (!prot) {
+    lambchop_info(logger, "invalid maxprot 0x%x\n", command->maxprot);
+    return false;
+  }
+  lambchop_info(logger, "maxprot = %s\n", prot);
+  prot = vm_prot(command->initprot);
+  if (!prot) {
+    lambchop_info(logger, "invalid initprot 0x%x\n", command->maxprot);
+    return false;
+  }
+  lambchop_info(logger, "initprot = %s\n", prot);
   lambchop_info(logger, "nsects = %u\n", command->nsects);
   lambchop_info(logger, "flags = 0x%x\n", command->flags);
   for (i = 0; i < command->nsects; i++) {
@@ -110,14 +149,25 @@ static bool lc_dump_segment_32(struct segment_command *command, char *img, lambc
 
 static bool lc_dump_segment_64(struct segment_command_64 *command, char *img, lambchop_logger *logger) {
   int i;
+  const char *prot;
   lambchop_info(logger, "--------------------- SEGMENT COMMAND 64 ---------------------\n");
   lambchop_info(logger, "segname = %s\n", command->segname);
   lambchop_info(logger, "vmaddr = 0x%llx\n", command->vmaddr);
   lambchop_info(logger, "vmsize = %llu\n", command->vmsize);
   lambchop_info(logger, "fileoff = %llu\n", command->fileoff);
   lambchop_info(logger, "filesize = %llu\n", command->filesize);
-  lambchop_info(logger, "maxprot = %u\n", command->maxprot);
-  lambchop_info(logger, "initprot = %u\n", command->initprot);
+  prot = vm_prot(command->maxprot);
+  if (!prot) {
+    lambchop_info(logger, "invalid maxprot 0x%x\n", command->maxprot);
+    return false;
+  }
+  lambchop_info(logger, "maxprot = %s\n", prot);
+  prot = vm_prot(command->initprot);
+  if (!prot) {
+    lambchop_info(logger, "invalid initprot 0x%x\n", command->maxprot);
+    return false;
+  }
+  lambchop_info(logger, "initprot = %s\n", prot);
   lambchop_info(logger, "nsects = %u\n", command->nsects);
   lambchop_info(logger, "flags = 0x%x\n", command->flags);
   for (i = 0; i < command->nsects; i++) {
