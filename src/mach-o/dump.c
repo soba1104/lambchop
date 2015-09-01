@@ -719,7 +719,7 @@ static bool lc_dump(struct load_command *command, char *img, bool is32, lambchop
   }
 }
 
-static bool mach_o_dump(char *img, uint32_t ncmds, char *ptr, bool is32, lambchop_logger *logger) {
+static bool macho_dump(char *img, uint32_t ncmds, char *ptr, bool is32, lambchop_logger *logger) {
   struct load_command **commands = NULL;
   bool ret = true;
   int i;
@@ -751,7 +751,7 @@ out:
   return ret;
 }
 
-static bool mach_o_dump_64(char *img, size_t size, lambchop_logger *logger) {
+static bool macho_dump_64(char *img, size_t size, lambchop_logger *logger) {
   char *ptr = img;
   struct mach_header_64 *hdr;
 
@@ -765,10 +765,10 @@ static bool mach_o_dump_64(char *img, size_t size, lambchop_logger *logger) {
   lambchop_debug(logger, "sizeofcmds = %d\n", hdr->sizeofcmds);
   lambchop_debug(logger, "flags = 0x%x\n", hdr->flags);
 
-  return mach_o_dump(img, hdr->ncmds, ptr, false, logger);
+  return macho_dump(img, hdr->ncmds, ptr, false, logger);
 }
 
-static bool mach_o_dump_32(char *img, size_t size, lambchop_logger *logger) {
+static bool macho_dump_32(char *img, size_t size, lambchop_logger *logger) {
   char *ptr = img;
   struct mach_header *hdr;
 
@@ -782,20 +782,20 @@ static bool mach_o_dump_32(char *img, size_t size, lambchop_logger *logger) {
   lambchop_debug(logger, "sizeofcmds = %d\n", hdr->sizeofcmds);
   lambchop_debug(logger, "flags = 0x%x\n", hdr->flags);
 
-  return mach_o_dump(img, hdr->ncmds, ptr, true, logger);
+  return macho_dump(img, hdr->ncmds, ptr, true, logger);
 }
 
-bool lambchop_mach_o_dump(char *img, size_t size, lambchop_logger *logger) {
+bool lambchop_macho_dump(char *img, size_t size, lambchop_logger *logger) {
   char *ptr = img;
   uint32_t magic = *(uint32_t*)(img);
 
   lambchop_info(logger, "mach-o load start\n");
   if (magic == MH_MAGIC) {
-    if (!mach_o_dump_32(img, size, logger)) {
+    if (!macho_dump_32(img, size, logger)) {
       goto err;
     }
   } else if (magic == MH_MAGIC_64) {
-    if (!mach_o_dump_64(img, size, logger)) {
+    if (!macho_dump_64(img, size, logger)) {
       goto err;
     }
   } else {

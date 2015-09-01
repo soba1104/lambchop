@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     goto err;
   }
 
-  if (!lambchop_mach_o_dump(buf, size, &logger)) {
+  if (!lambchop_macho_dump(buf, size, &logger)) {
     fprintf(stderr, "failed to process %s\n", path);
     goto err;
   }
