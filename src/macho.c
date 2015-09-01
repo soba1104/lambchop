@@ -11,10 +11,13 @@
 #include <mach-o/nlist.h>
 
 static const char *cputype(cpu_type_t cputype) {
-  if (cputype == CPU_TYPE_X86_64) {
-    return "X86_64";
-  } else {
-    return "UNKNOWN";
+  switch(cputype) {
+    case CPU_TYPE_X86:
+      return "X86";
+    case CPU_TYPE_X86_64:
+      return "X86_64";
+    default:
+      return "UNKNOWN";
   }
 }
 
