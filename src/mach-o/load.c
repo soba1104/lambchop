@@ -12,6 +12,7 @@
 
 #define ERR(...) lambchop_err(loader->logger, __VA_ARGS__)
 #define INFO(...) lambchop_info(loader->logger, __VA_ARGS__)
+#define DEBUG(...) lambchop_debug(loader->logger, __VA_ARGS__)
 
 typedef struct {
   bool is32;
@@ -36,11 +37,33 @@ static macho_loader *macho_loader_alloc(void) {
   return loader;
 }
 
-static bool macho_loader_load(macho_loader *loader) {
+static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t ncmds) {
+  char *ub = loader->img + loader->imgsize;
+  int i;
+  for (i = 0; i < ncmds; i++) {
+    struct load_command *command = (struct load_command*)ptr;
+    if ((ptr + command->cmdsize)  >= ub) {
+      ERR("too large lc\n");
+      goto err;
+    }
+    switch(command->cmd) {
+      default:
+        ERR("illegal or unsupported load command: 0x%x\n", command->cmd);
+        return false;
+    }
+    ptr += command->cmdsize;
+  }
+  return true;
+
+err:
+  ERR("failed to prepare lc\n");
+  return false;
+}
+
+static bool macho_loader_prepare(macho_loader *loader) {
   char *ptr = loader->img;
   uint32_t magic = *(uint32_t*)(ptr);
   uint32_t ncmds;
-  bool ret;
 
   if (magic == MH_MAGIC) {
     struct mach_header *hdr = (struct mach_header*)ptr;
@@ -57,11 +80,12 @@ static bool macho_loader_load(macho_loader *loader) {
     return false;
   }
 
-  /*if (!macho_loader_process_lc(&loader, ncmds)) {*/
-    /*return false;*/
-  /*}*/
+  DEBUG("prepare lc: ncmds = %u\n", ncmds);
+  if (!macho_loader_prepare_lc(loader, ptr, ncmds)) {
+    return false;
+  }
 
-  return ret;
+  return true;
 }
 
 bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger) {
@@ -79,7 +103,7 @@ bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger) {
   loader->logger = logger;
 
   lambchop_info(logger, "mach-o load start\n");
-  ret = macho_loader_load(loader);
+  ret = macho_loader_prepare(loader);
 
 out:
   macho_loader_free(loader);
