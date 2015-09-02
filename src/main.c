@@ -70,7 +70,11 @@ int main(int argc, char **argv) {
   }
 
   if (!lambchop_macho_dump(buf, size, &logger)) {
-    fprintf(stderr, "failed to process %s\n", path);
+    fprintf(stderr, "failed to dump %s\n", path);
+    goto err;
+  }
+  if (!lambchop_macho_load(buf, size, &logger)) {
+    fprintf(stderr, "failed to load %s\n", path);
     goto err;
   }
 

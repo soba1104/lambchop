@@ -789,7 +789,7 @@ bool lambchop_macho_dump(char *img, size_t size, lambchop_logger *logger) {
   char *ptr = img;
   uint32_t magic = *(uint32_t*)(img);
 
-  lambchop_info(logger, "mach-o load start\n");
+  lambchop_info(logger, "mach-o dump start\n");
   if (magic == MH_MAGIC) {
     if (!macho_dump_32(img, size, logger)) {
       goto err;
@@ -802,10 +802,10 @@ bool lambchop_macho_dump(char *img, size_t size, lambchop_logger *logger) {
     lambchop_err(logger, "invalid magic %x\n", magic);
     goto err;
   }
-  lambchop_info(logger, "mach-o load finish\n");
+  lambchop_info(logger, "mach-o dump finish\n");
   return true;
 
 err:
-  lambchop_info(logger, "mach-o load failure\n");
+  lambchop_info(logger, "mach-o dump failure\n");
   return false;
 }
