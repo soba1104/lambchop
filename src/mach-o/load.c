@@ -105,6 +105,7 @@ static bool macho_loader_prepare_lc_##name(macho_loader *loader, struct load_com
 
 GENERIC_PREPARE_LC(symtab, struct symtab_command);
 GENERIC_PREPARE_LC(dysymtab, struct dysymtab_command);
+GENERIC_PREPARE_LC(uuid, struct uuid_command);
 
 static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t ncmds) {
   char *ub = loader->img + loader->imgsize;
@@ -116,30 +117,18 @@ static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t nc
       goto err;
     }
     switch(command->cmd) {
-      case LC_SEGMENT_64:
-        if (!macho_loader_prepare_lc_segment_64(loader, command)) {
-          ERR("failed to prepare segment 64 command\n");
-          return false;
-        }
+#define PREPARE_LC_STMT(lc, name) \
+      case lc: \
+        if (!macho_loader_prepare_lc_##name(loader, command)) { \
+          ERR("failed to prepare " #name " command\n"); \
+          return false; \
+        } \
         break;
-      case LC_SYMTAB:
-        if (!macho_loader_prepare_lc_symtab(loader, command)) {
-          ERR("failed to prepare symtab command\n");
-          return false;
-        }
-        break;
-      case LC_DYSYMTAB:
-        if (!macho_loader_prepare_lc_dysymtab(loader, command)) {
-          ERR("failed to prepare dysymtab command\n");
-          return false;
-        }
-        break;
-      case LC_ID_DYLINKER:
-        if (!macho_loader_prepare_lc_id_dylinker(loader, command)) {
-          ERR("failed to prepare id dylinker command\n");
-          return false;
-        }
-        break;
+      PREPARE_LC_STMT(LC_SEGMENT_64, segment_64)
+      PREPARE_LC_STMT(LC_SYMTAB, symtab)
+      PREPARE_LC_STMT(LC_DYSYMTAB, dysymtab)
+      PREPARE_LC_STMT(LC_ID_DYLINKER, id_dylinker)
+      PREPARE_LC_STMT(LC_UUID, uuid)
       default:
         ERR("illegal or unsupported load command: 0x%x\n", command->cmd);
         return false;
