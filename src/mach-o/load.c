@@ -111,6 +111,7 @@ GENERIC_PREPARE_LC(source_version, struct source_version_command);
 GENERIC_PREPARE_LC(segment_split_info, struct linkedit_data_command);
 GENERIC_PREPARE_LC(function_starts, struct linkedit_data_command);
 GENERIC_PREPARE_LC(data_in_code, struct linkedit_data_command);
+GENERIC_PREPARE_LC(code_signature, struct linkedit_data_command);
 
 static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t ncmds) {
   char *ub = loader->img + loader->imgsize;
@@ -139,6 +140,7 @@ static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t nc
       PREPARE_LC_STMT(LC_SEGMENT_SPLIT_INFO, segment_split_info)
       PREPARE_LC_STMT(LC_FUNCTION_STARTS, function_starts)
       PREPARE_LC_STMT(LC_DATA_IN_CODE, data_in_code)
+      PREPARE_LC_STMT(LC_CODE_SIGNATURE, code_signature)
       case LC_UNIXTHREAD:
         // TODO
         break;
