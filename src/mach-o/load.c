@@ -19,11 +19,16 @@ typedef struct {
   char *img;
   size_t imgsize;
   lambchop_logger *logger;
+  void **segments;
+  uint32_t nsegs;
 } macho_loader;
 
 static void macho_loader_free(macho_loader *loader) {
   if (!loader) {
     return;
+  }
+  if (loader->segments) {
+    free(loader->segments);
   }
   free(loader);
 }
@@ -37,6 +42,38 @@ static macho_loader *macho_loader_alloc(void) {
   return loader;
 }
 
+// TODO section の解釈
+static bool macho_loader_prepare_lc_segment_64(macho_loader *loader, struct load_command *__command) {
+  struct segment_command_64 *command = (struct segment_command_64*)__command;
+  char *ub = ((char*)command) + command->cmdsize, *p = (char*)(command + 1);
+  void *segs;
+  int i;
+
+  for (i = 0; i < command->nsects; i++) {
+    struct section_64 *sections = (struct section_64*)(command+1);
+    struct section_64 *section = sections + i;
+    p += sizeof(struct section_64);
+    if (p > ub) {
+      ERR("too large section 1\n");
+      return false;
+    }
+  }
+  if (p != ub) {
+    ERR("invalid segment 64 command\n");
+    return false;
+  }
+
+  segs = realloc(loader->segments, sizeof(void*) * (loader->nsegs + 1));
+  if (!segs) {
+    ERR("failed to allocate segment buffer: %s\n", strerror(errno));
+    return false;
+  }
+  loader->segments = segs;
+  loader->segments[loader->nsegs] = command;
+  loader->nsegs++;
+  return true;
+}
+
 static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t ncmds) {
   char *ub = loader->img + loader->imgsize;
   int i;
@@ -47,6 +84,11 @@ static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t nc
       goto err;
     }
     switch(command->cmd) {
+      case LC_SEGMENT_64:
+        if (!macho_loader_prepare_lc_segment_64(loader, command)) {
+          ERR("failed to prepare segment 64 command\n");
+          return false;
+        }
       default:
         ERR("illegal or unsupported load command: 0x%x\n", command->cmd);
         return false;
