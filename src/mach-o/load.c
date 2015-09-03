@@ -54,7 +54,7 @@ static bool macho_loader_prepare_lc_segment_64(macho_loader *loader, struct load
     struct section_64 *section = sections + i;
     p += sizeof(struct section_64);
     if (p > ub) {
-      ERR("too large section 1\n");
+      ERR("too large section\n");
       return false;
     }
   }
