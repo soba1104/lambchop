@@ -106,6 +106,11 @@ static bool macho_loader_prepare_lc_##name(macho_loader *loader, struct load_com
 GENERIC_PREPARE_LC(symtab, struct symtab_command);
 GENERIC_PREPARE_LC(dysymtab, struct dysymtab_command);
 GENERIC_PREPARE_LC(uuid, struct uuid_command);
+GENERIC_PREPARE_LC(version_min_macosx, struct version_min_command);
+GENERIC_PREPARE_LC(source_version, struct source_version_command);
+GENERIC_PREPARE_LC(segment_split_info, struct linkedit_data_command);
+GENERIC_PREPARE_LC(function_starts, struct linkedit_data_command);
+GENERIC_PREPARE_LC(data_in_code, struct linkedit_data_command);
 
 static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t ncmds) {
   char *ub = loader->img + loader->imgsize;
@@ -129,6 +134,14 @@ static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t nc
       PREPARE_LC_STMT(LC_DYSYMTAB, dysymtab)
       PREPARE_LC_STMT(LC_ID_DYLINKER, id_dylinker)
       PREPARE_LC_STMT(LC_UUID, uuid)
+      PREPARE_LC_STMT(LC_VERSION_MIN_MACOSX, version_min_macosx)
+      PREPARE_LC_STMT(LC_SOURCE_VERSION, source_version)
+      PREPARE_LC_STMT(LC_SEGMENT_SPLIT_INFO, segment_split_info)
+      PREPARE_LC_STMT(LC_FUNCTION_STARTS, function_starts)
+      PREPARE_LC_STMT(LC_DATA_IN_CODE, data_in_code)
+      case LC_UNIXTHREAD:
+        // TODO
+        break;
       default:
         ERR("illegal or unsupported load command: 0x%x\n", command->cmd);
         return false;
