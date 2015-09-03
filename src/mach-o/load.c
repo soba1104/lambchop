@@ -89,6 +89,7 @@ static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t nc
           ERR("failed to prepare segment 64 command\n");
           return false;
         }
+        break;
       default:
         ERR("illegal or unsupported load command: 0x%x\n", command->cmd);
         return false;
