@@ -643,6 +643,13 @@ bool lc_dump_load_dylib(struct dylib_command *command, char *img, lambchop_logge
   return true;
 }
 
+bool lc_dump_id_dylinker(struct dylinker_command *command, char *img, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- ID DYLINKER COMMAND ---------------------\n");
+  lambchop_info(logger, "name = %s\n", ((char*)command) + command->name.offset);
+  lambchop_info(logger, "---------------------------------------------------------------\n");
+  return true;
+}
+
 bool lc_dump_function_starts(struct linkedit_data_command *command, char *img, lambchop_logger *logger) {
   lambchop_info(logger, "--------------------- FUNCTION STARTS COMMAND ---------------------\n");
   lambchop_info(logger, "dataoff = 0x%x\n", command->dataoff);
@@ -672,6 +679,14 @@ bool lc_dump_code_signature(struct linkedit_data_command *command, char *img, la
   lambchop_info(logger, "dataoff = 0x%x\n", command->dataoff);
   lambchop_info(logger, "datasize = %u\n", command->datasize);
   lambchop_info(logger, "------------------------------------------------------------------\n");
+  return true;
+}
+
+bool lc_dump_segment_split_info(struct linkedit_data_command *command, char *img, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- SEGMENT SPLIT INFO COMMAND ---------------------\n");
+  lambchop_info(logger, "dataoff = 0x%x\n", command->dataoff);
+  lambchop_info(logger, "datasize = %u\n", command->datasize);
+  lambchop_info(logger, "----------------------------------------------------------------------\n");
   return true;
 }
 
@@ -705,6 +720,8 @@ static bool lc_dump(struct load_command *command, char *img, bool is32, lambchop
       return lc_dump_main((struct entry_point_command*)command, img, logger);
     case LC_LOAD_DYLIB:
       return lc_dump_load_dylib((struct dylib_command*)command, img, logger);
+    case LC_ID_DYLINKER:
+      return lc_dump_id_dylinker((struct dylinker_command*)command, img, logger);
     case LC_FUNCTION_STARTS:
       return lc_dump_function_starts((struct linkedit_data_command*)command, img, logger);
     case LC_DATA_IN_CODE:
@@ -713,6 +730,8 @@ static bool lc_dump(struct load_command *command, char *img, bool is32, lambchop
       return lc_dump_dylib_code_sign_drs((struct linkedit_data_command*)command, img, logger);
     case LC_CODE_SIGNATURE:
       return lc_dump_code_signature((struct linkedit_data_command*)command, img, logger);
+    case LC_SEGMENT_SPLIT_INFO:
+      return lc_dump_segment_split_info((struct linkedit_data_command*)command, img, logger);
     default:
       lambchop_err(logger, "unexpected load command: 0x%x\n", command->cmd);
       return false;
