@@ -59,7 +59,7 @@ static bool macho_loader_prepare_lc_segment_64(macho_loader *loader, struct load
     }
   }
   if (p != ub) {
-    ERR("invalid segment 64 command\n");
+    ERR("invalid segment_64 command\n");
     return false;
   }
 
@@ -74,29 +74,37 @@ static bool macho_loader_prepare_lc_segment_64(macho_loader *loader, struct load
   return true;
 }
 
-static bool macho_loader_prepare_lc_symtab(macho_loader *loader, struct load_command *__command) {
-  struct symtab_command *command = (struct symtab_command*)__command;
+static bool macho_loader_prepare_lc_id_dylinker(macho_loader *loader, struct load_command *__command) {
+  struct dylinker_command *command = (struct dylinker_command*)__command;
   char *ub = ((char*)command) + command->cmdsize, *p = (char*)(command + 1);
 
-  if (p != ub) {
-    ERR("invalid symtab command\n");
+  if (p >= ub) {
+    ERR("invalid id_dylinker command: invalid command size\n");
+    return false;
+  }
+
+  p = ((char*)command) + command->name.offset;
+  if (p >= ub) {
+    ERR("invalid id_dylinker command: too long name\n");
     return false;
   }
 
   return true;
 }
 
-static bool macho_loader_prepare_lc_dysymtab(macho_loader *loader, struct load_command *__command) {
-  struct dysymtab_command *command = (struct dysymtab_command*)__command;
-  char *ub = ((char*)command) + command->cmdsize, *p = (char*)(command + 1);
-
-  if (p != ub) {
-    ERR("invalid dysymtab command\n");
-    return false;
-  }
-
-  return true;
+#define GENERIC_PREPARE_LC(name, type) \
+static bool macho_loader_prepare_lc_##name(macho_loader *loader, struct load_command *__command) { \
+  type *command = (type*)__command; \
+  char *ub = ((char*)command) + command->cmdsize, *p = (char*)(command + 1); \
+  if (p != ub) { \
+    ERR("invalid " #name " command: invalid command size\n"); \
+    return false; \
+  } \
+  return true; \
 }
+
+GENERIC_PREPARE_LC(symtab, struct symtab_command);
+GENERIC_PREPARE_LC(dysymtab, struct dysymtab_command);
 
 static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t ncmds) {
   char *ub = loader->img + loader->imgsize;
@@ -123,6 +131,12 @@ static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t nc
       case LC_DYSYMTAB:
         if (!macho_loader_prepare_lc_dysymtab(loader, command)) {
           ERR("failed to prepare dysymtab command\n");
+          return false;
+        }
+        break;
+      case LC_ID_DYLINKER:
+        if (!macho_loader_prepare_lc_id_dylinker(loader, command)) {
+          ERR("failed to prepare id dylinker command\n");
           return false;
         }
         break;
