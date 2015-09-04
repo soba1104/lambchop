@@ -185,6 +185,10 @@ static bool macho_loader_prepare(macho_loader *loader) {
   return true;
 }
 
+static bool macho_loader_load(macho_loader *loader) {
+  return true;
+}
+
 bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger) {
   macho_loader *loader = NULL;
   bool ret;
@@ -192,22 +196,32 @@ bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger) {
   loader = macho_loader_alloc();
   if (!loader) {
     lambchop_err(logger, "failed to allocate loader: %s\n", strerror(errno));
-    ret = false;
-    goto out;
+    goto err;
   }
   loader->img = img;
   loader->imgsize = size;
   loader->logger = logger;
 
   lambchop_info(logger, "mach-o load start\n");
-  ret = macho_loader_prepare(loader);
+  if (!macho_loader_prepare(loader)) {
+    lambchop_err(logger, "failed to prepare loader\n");
+    goto err;
+  }
+  if (!macho_loader_load(loader)) {
+    lambchop_err(logger, "failed to load image\n");
+    goto err;
+  }
+
+  lambchop_info(logger, "mach-o load finish\n");
+  ret = true;
+  goto out;
+
+err:
+  lambchop_err(logger, "mach-o load failure\n");
+  ret = false;
 
 out:
   macho_loader_free(loader);
-  if (ret) {
-    lambchop_info(logger, "mach-o load finish\n");
-  } else {
-    lambchop_err(logger, "mach-o load failure\n");
-  }
+
   return ret;
 }
