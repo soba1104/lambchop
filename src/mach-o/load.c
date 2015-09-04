@@ -10,6 +10,8 @@
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 
+#include <sys/mman.h>
+
 #define ERR(...) lambchop_err(loader->logger, __VA_ARGS__)
 #define INFO(...) lambchop_info(loader->logger, __VA_ARGS__)
 #define DEBUG(...) lambchop_debug(loader->logger, __VA_ARGS__)
@@ -201,6 +203,7 @@ static bool macho_loader_load_segment(macho_loader *loader, void *segment) {
   vm_prot_t maxprot, initprot;
   uint32_t nsects, flags;
   const char *segname;
+  int prot = 0;
 
 #define INIT_VARS(type) do {\
   type *s = segment; \
@@ -220,7 +223,28 @@ static bool macho_loader_load_segment(macho_loader *loader, void *segment) {
     INIT_VARS(struct segment_command_64);
   }
 #undef INIT_VARS
-  DEBUG("loading segment: %s\n", segname);
+  DEBUG("-------- loading segment: %s --------\n", segname);
+  DEBUG("vmaddr = 0x%llx, vmsize = 0x%llx\n", vmaddr, vmsize);
+  DEBUG("fileoff = 0x%llx, filesize = 0x%llx\n", fileoff, filesize);
+
+  if (initprot & VM_PROT_READ) {
+    prot |= PROT_READ;
+  }
+  if (initprot & VM_PROT_WRITE) {
+    prot |= PROT_WRITE;
+  }
+  if (initprot & VM_PROT_EXECUTE) {
+    prot |= PROT_EXEC;
+  }
+  if ((void*)vmaddr != mmap((void*)vmaddr, vmsize, prot | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANON, -1, 0)) {
+    ERR("failed to mmap: %s\n", strerror(errno));
+    return false;
+  }
+  memcpy((void*)vmaddr, loader->img + fileoff, filesize);
+  if (mprotect((void*)vmaddr, vmsize, prot) < 0) {
+    ERR("failed to mprotect: %s\n", mprotect);
+    return false;
+  }
 
   return true;
 }
