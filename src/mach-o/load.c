@@ -100,6 +100,18 @@ static bool macho_loader_prepare_lc_id_dylinker(macho_loader *loader, struct loa
   return true;
 }
 
+static bool macho_loader_prepare_lc_unixthread(macho_loader *loader, struct load_command *__command) {
+  struct thread_command *command = (struct thread_command*)__command;
+  char *ub = ((char*)command) + command->cmdsize, *p = (char*)(command + 1);
+
+  if (p >= ub) {
+    ERR("invalid unixthread command: invalid command size\n");
+    return false;
+  }
+
+  return true;
+}
+
 #define GENERIC_PREPARE_LC(name, type) \
 static bool macho_loader_prepare_lc_##name(macho_loader *loader, struct load_command *__command) { \
   type *command = (type*)__command; \
@@ -142,6 +154,7 @@ static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t nc
       PREPARE_LC_STMT(LC_SYMTAB, symtab)
       PREPARE_LC_STMT(LC_DYSYMTAB, dysymtab)
       PREPARE_LC_STMT(LC_ID_DYLINKER, id_dylinker)
+      PREPARE_LC_STMT(LC_UNIXTHREAD, unixthread)
       PREPARE_LC_STMT(LC_UUID, uuid)
       PREPARE_LC_STMT(LC_VERSION_MIN_MACOSX, version_min_macosx)
       PREPARE_LC_STMT(LC_SOURCE_VERSION, source_version)
@@ -149,9 +162,6 @@ static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t nc
       PREPARE_LC_STMT(LC_FUNCTION_STARTS, function_starts)
       PREPARE_LC_STMT(LC_DATA_IN_CODE, data_in_code)
       PREPARE_LC_STMT(LC_CODE_SIGNATURE, code_signature)
-      case LC_UNIXTHREAD:
-        // TODO
-        break;
       default:
         ERR("illegal or unsupported load command: 0x%x\n", command->cmd);
         return false;
@@ -267,6 +277,10 @@ static bool macho_loader_load_segments(macho_loader *loader) {
   return true;
 }
 
+static bool macho_loader_setup_thread(macho_loader *loader) {
+  return true;
+}
+
 static bool macho_loader_load(macho_loader *loader) {
   if (!macho_loader_load_segments(loader)) {
     ERR("failed to load segments\n");
@@ -296,6 +310,10 @@ bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger) {
   }
   if (!macho_loader_load(loader)) {
     lambchop_err(logger, "failed to load image\n");
+    goto err;
+  }
+  if (!macho_loader_setup_thread(loader)) {
+    lambchop_err(logger, "failed to setup thread\n");
     goto err;
   }
 
