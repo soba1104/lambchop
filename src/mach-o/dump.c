@@ -546,7 +546,7 @@ static bool lc_dump_symtab_64(struct symtab_command *command, char *img, lambcho
     uint16_t desc = list->n_desc;
     uint64_t value = list->n_value;
     lambchop_info(logger,
-                  "%d: name = %s, type = 0x%x, sect = %d, desc = 0x%x, value = 0x%x\n",
+                  "%d: name = %s, type = 0x%x, sect = %d, desc = 0x%x, value = 0x%llx\n",
                   i, sym, type, sect, desc, value);
   }
   lambchop_info(logger, "----------------------------------------------------------\n");
