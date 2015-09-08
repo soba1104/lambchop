@@ -21,8 +21,7 @@ int main(int argc, char **argv, char **envp, char **apple) {
     goto err;
   }
 
-  buf = lambchop_file_read_all(path, &logger);
-  if (!buf) {
+  if (!lambchop_file_read_all(path, &logger, &buf, &size)) {
     lambchop_err(&logger, "failed to read file: path = %s\n", path);
     goto err;
   }

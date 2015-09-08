@@ -24,11 +24,12 @@ static bool readn(int fd, char *buf, size_t size) {
   return true;
 }
 
-char *lambchop_file_read_all(const char *path, lambchop_logger *logger) {
+bool lambchop_file_read_all(const char *path, lambchop_logger *logger, char **bufp, size_t *sizep) {
   int fd = -1;
   struct stat st;
   size_t size;
   char *buf = NULL;
+  bool ret;
 
   fd = open(path, O_RDONLY);
   if (fd < 0) {
@@ -53,6 +54,10 @@ char *lambchop_file_read_all(const char *path, lambchop_logger *logger) {
     goto err;
   }
 
+  *bufp = buf;
+  *sizep = size;
+  ret = true;
+
   goto out;
 
 err:
@@ -60,11 +65,12 @@ err:
     free(buf);
     buf = NULL;
   }
+  ret = false;
 
 out:
   if (fd >= 0) {
     close(fd);
   }
 
-  return buf;
+  return ret;
 }
