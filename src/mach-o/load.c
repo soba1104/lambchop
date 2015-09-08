@@ -302,9 +302,16 @@ static bool macho_loader_load(macho_loader *loader) {
   return true;
 }
 
-bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger, char **envp, char **apple) {
+bool lambchop_macho_load(char *path, lambchop_logger *logger, char **envp, char **apple) {
   macho_loader *loader = NULL;
+  char *img = NULL;
+  size_t size;
   bool ret;
+
+  if (!lambchop_file_read_all(path, logger, &img, &size)) {
+    lambchop_err(logger, "failed to read file: path = %s\n", path);
+    goto err;
+  }
 
   loader = macho_loader_alloc();
   if (!loader) {
@@ -341,6 +348,9 @@ err:
   ret = false;
 
 out:
+  if (img) {
+    free(img);
+  }
   macho_loader_free(loader);
 
   return ret;
