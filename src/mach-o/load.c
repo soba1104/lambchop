@@ -23,7 +23,13 @@ typedef struct {
   lambchop_logger *logger;
   void **segments;
   uint32_t nsegs;
+  int64_t slide;
 } macho_loader;
+
+static int64_t macho_loader_get_dyld_slide() {
+  // TODO randomize
+  return -0x100000000;
+}
 
 static void macho_loader_free(macho_loader *loader) {
   if (!loader) {
@@ -210,6 +216,8 @@ static bool macho_loader_prepare(macho_loader *loader) {
 static bool macho_loader_load_segment(macho_loader *loader, void *segment) {
   uint64_t vmaddr, vmsize;
   uint64_t fileoff, filesize;
+  int64_t slide = loader->slide;
+  void *mapaddr;
   vm_prot_t maxprot, initprot;
   uint32_t nsects, flags;
   const char *segname;
@@ -226,6 +234,7 @@ static bool macho_loader_load_segment(macho_loader *loader, void *segment) {
   nsects = s->nsects; \
   flags = s->flags; \
   segname = s->segname; \
+  mapaddr = (void*)(vmaddr + slide); \
 } while(0)
   if (loader->is32) {
     INIT_VARS(struct segment_command);
@@ -235,6 +244,7 @@ static bool macho_loader_load_segment(macho_loader *loader, void *segment) {
 #undef INIT_VARS
   DEBUG("-------- loading segment: %s --------\n", segname);
   DEBUG("vmaddr = 0x%llx, vmsize = 0x%llx\n", vmaddr, vmsize);
+  DEBUG("mapaddr = 0x%llx, slide = 0x%llx\n", mapaddr, slide);
   DEBUG("fileoff = 0x%llx, filesize = 0x%llx\n", fileoff, filesize);
 
   if (initprot & VM_PROT_READ) {
@@ -246,12 +256,12 @@ static bool macho_loader_load_segment(macho_loader *loader, void *segment) {
   if (initprot & VM_PROT_EXECUTE) {
     prot |= PROT_EXEC;
   }
-  if ((void*)vmaddr != mmap((void*)vmaddr, vmsize, prot | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANON, -1, 0)) {
+  if (mapaddr != mmap(mapaddr, vmsize, prot | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANON, -1, 0)) {
     ERR("failed to mmap: %s\n", strerror(errno));
     return false;
   }
-  memcpy((void*)vmaddr, loader->img + fileoff, filesize);
-  if (mprotect((void*)vmaddr, vmsize, prot) < 0) {
+  memcpy(mapaddr, loader->img + fileoff, filesize);
+  if (mprotect(mapaddr, vmsize, prot) < 0) {
     ERR("failed to mprotect: %s\n", mprotect);
     return false;
   }
@@ -302,6 +312,7 @@ bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger) {
   loader->img = img;
   loader->imgsize = size;
   loader->logger = logger;
+  loader->slide = macho_loader_get_dyld_slide();
 
   lambchop_info(logger, "mach-o load start\n");
   if (!macho_loader_prepare(loader)) {
