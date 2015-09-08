@@ -291,16 +291,7 @@ static bool macho_loader_load_segments(macho_loader *loader) {
   return true;
 }
 
-static bool macho_loader_load(macho_loader *loader) {
-  if (!macho_loader_load_segments(loader)) {
-    ERR("failed to load segments\n");
-    return false;
-  }
-
-  return true;
-}
-
-static macho_loader *macho_loader_load_dyld(char *path, lambchop_logger *logger) {
+static macho_loader *macho_loader_load(char *path, lambchop_logger *logger) {
   macho_loader *loader = NULL;
   char *img = NULL;
   size_t size;
@@ -320,16 +311,17 @@ static macho_loader *macho_loader_load_dyld(char *path, lambchop_logger *logger)
   loader->logger = logger;
   loader->slide = macho_loader_get_dyld_slide();
 
-  lambchop_info(logger, "dyld load start\n");
+  lambchop_info(logger, "%s load start\n", path);
   if (!macho_loader_prepare(loader, false)) {
     lambchop_err(logger, "failed to prepare loader\n");
     goto err;
   }
-  if (!macho_loader_load(loader)) {
-    lambchop_err(logger, "failed to load image\n");
-    goto err;
+  if (!macho_loader_load_segments(loader)) {
+    lambchop_err(logger, "failed to load segments\n");
+    return false;
   }
-  lambchop_info(logger, "dyld load finish\n");
+  lambchop_info(logger, "%s load finish\n", path);
+
 
   return loader;
 
@@ -346,7 +338,7 @@ bool lambchop_macho_load(char *path, lambchop_logger *logger, char **envp, char 
   macho_loader *dyld_loader = NULL;
   bool ret = false;
 
-  dyld_loader = macho_loader_load_dyld(path, logger);
+  dyld_loader = macho_loader_load(path, logger);
   if (!dyld_loader) {
     lambchop_err(logger, "failed to load dyld\n");
     goto out;
