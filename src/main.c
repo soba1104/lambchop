@@ -26,7 +26,7 @@ int main(int argc, char **argv, char **envp, char **apple) {
     goto err;
   }
 
-  if (!lambchop_macho_dump(buf, size, &logger)) {
+  if (!lambchop_macho_dump(path, &logger)) {
     lambchop_err(&logger, "failed to dump %s\n", path);
     goto err;
   }

@@ -29,7 +29,7 @@ void lambchop_logger_set_log_level(lambchop_logger *logger, int level);
 void lambchop_logger_set_log_fd(lambchop_logger *logger, int fd);
 bool lambchop_logger_init(lambchop_logger *logger);
 
-bool lambchop_macho_dump(char *buf, size_t size, lambchop_logger *logger);
+bool lambchop_macho_dump(char *path, lambchop_logger *logger);
 bool lambchop_macho_load(char *buf, size_t size, lambchop_logger *logger, char **envp, char **apple);
 
 bool lambchop_file_read_all(const char *path, lambchop_logger *logger, char **buf, size_t *size);

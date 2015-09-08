@@ -804,11 +804,19 @@ static bool macho_dump_32(char *img, size_t size, lambchop_logger *logger) {
   return macho_dump(img, hdr->ncmds, ptr, true, logger);
 }
 
-bool lambchop_macho_dump(char *img, size_t size, lambchop_logger *logger) {
-  char *ptr = img;
-  uint32_t magic = *(uint32_t*)(img);
+bool lambchop_macho_dump(char *path, lambchop_logger *logger) {
+  char *img = NULL;
+  size_t size;
+  uint32_t magic;
+  bool ret;
+
+  if (!lambchop_file_read_all(path, logger, &img, &size)) {
+    lambchop_err(logger, "failed to read file: path = %s\n", path);
+    goto err;
+  }
 
   lambchop_info(logger, "mach-o dump start\n");
+  magic = *(uint32_t*)(img);
   if (magic == MH_MAGIC) {
     if (!macho_dump_32(img, size, logger)) {
       goto err;
@@ -822,9 +830,16 @@ bool lambchop_macho_dump(char *img, size_t size, lambchop_logger *logger) {
     goto err;
   }
   lambchop_info(logger, "mach-o dump finish\n");
-  return true;
+  ret = true;
+  goto out;
 
 err:
   lambchop_info(logger, "mach-o dump failure\n");
-  return false;
+  ret = false;
+
+out:
+  if (img) {
+    free(img);
+  }
+  return ret;
 }
