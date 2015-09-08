@@ -24,8 +24,6 @@ typedef struct {
   void **segments;
   uint32_t nsegs;
   int64_t slide;
-  char **envp;
-  char **apple;
 } macho_loader;
 
 static int64_t macho_loader_get_dyld_slide() {
@@ -302,11 +300,10 @@ static bool macho_loader_load(macho_loader *loader) {
   return true;
 }
 
-bool lambchop_macho_load(char *path, lambchop_logger *logger, char **envp, char **apple) {
+static macho_loader *macho_loader_load_dyld(char *path, lambchop_logger *logger) {
   macho_loader *loader = NULL;
   char *img = NULL;
   size_t size;
-  bool ret;
 
   if (!lambchop_file_read_all(path, logger, &img, &size)) {
     lambchop_err(logger, "failed to read file: path = %s\n", path);
@@ -322,10 +319,8 @@ bool lambchop_macho_load(char *path, lambchop_logger *logger, char **envp, char 
   loader->imgsize = size;
   loader->logger = logger;
   loader->slide = macho_loader_get_dyld_slide();
-  loader->envp = envp;
-  loader->apple = apple;
 
-  lambchop_info(logger, "mach-o load start\n");
+  lambchop_info(logger, "dyld load start\n");
   if (!macho_loader_prepare(loader)) {
     lambchop_err(logger, "failed to prepare loader\n");
     goto err;
@@ -338,20 +333,33 @@ bool lambchop_macho_load(char *path, lambchop_logger *logger, char **envp, char 
     lambchop_err(logger, "failed to setup thread\n");
     goto err;
   }
+  lambchop_info(logger, "dyld load finish\n");
 
-  lambchop_info(logger, "mach-o load finish\n");
-  ret = true;
-  goto out;
+  return loader;
 
 err:
-  lambchop_err(logger, "mach-o load failure\n");
-  ret = false;
-
-out:
   if (img) {
     free(img);
   }
   macho_loader_free(loader);
+
+  return NULL;
+}
+
+bool lambchop_macho_load(char *path, lambchop_logger *logger, char **envp, char **apple) {
+  macho_loader *dyld_loader = NULL;
+  bool ret = false;
+
+  dyld_loader = macho_loader_load_dyld(path, logger);
+  if (!dyld_loader) {
+    lambchop_err(logger, "failed to load dyld\n");
+    goto out;
+  }
+  ret = true;
+  goto out;
+
+out:
+  macho_loader_free(dyld_loader);
 
   return ret;
 }
