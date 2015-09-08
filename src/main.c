@@ -5,26 +5,31 @@
 
 int main(int argc, char **argv, char **envp, char **apple) {
   lambchop_logger logger;
-  char *path;
+  char *app_path, *dyld_path;
   int ret = 0;
 
-  if (argc < 2) {
-    fprintf(stderr, "usage: lambchop executable_path\n");
+  if (argc < 3) {
+    fprintf(stderr, "usage: lambchop executable_path dyld_path\n");
     goto err;
   }
-  path = argv[1];
+  app_path = argv[1];
+  dyld_path = argv[2];
 
   if (!lambchop_logger_init(&logger)) {
     fprintf(stderr, "failed to init logger\n");
     goto err;
   }
 
-  if (!lambchop_macho_dump(path, &logger)) {
-    lambchop_err(&logger, "failed to dump %s\n", path);
+  if (!lambchop_macho_dump(app_path, &logger)) {
+    lambchop_err(&logger, "failed to dump %s\n", app_path);
     goto err;
   }
-  if (!lambchop_macho_load(path, &logger, envp, apple)) {
-    lambchop_err(&logger, "failed to load %s\n", path);
+  if (!lambchop_macho_dump(dyld_path, &logger)) {
+    lambchop_err(&logger, "failed to dump %s\n", dyld_path);
+    goto err;
+  }
+  if (!lambchop_macho_load(app_path, dyld_path, &logger, envp, apple)) {
+    lambchop_err(&logger, "failed to load %s, %s\n", app_path, dyld_path);
     goto err;
   }
   goto out;

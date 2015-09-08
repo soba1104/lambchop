@@ -343,20 +343,29 @@ err:
   return NULL;
 }
 
-bool lambchop_macho_load(char *path, lambchop_logger *logger, char **envp, char **apple) {
-  macho_loader *dyld_loader = NULL;
+bool lambchop_macho_load(char *app_path, char *dyld_path, lambchop_logger *logger, char **envp, char **apple) {
+  macho_loader *dyld_loader = NULL, *app_loader = NULL;
   bool ret = false;
 
-  dyld_loader = macho_loader_load(path, logger, false);
+  // TODO dyld のパスを引数で受け取るようにする。
+  dyld_loader = macho_loader_load(dyld_path, logger, false);
   if (!dyld_loader) {
-    lambchop_err(logger, "failed to load dyld\n");
+    lambchop_err(logger, "failed to load dyld(%s)\n", dyld_path);
     goto out;
   }
+
+  app_loader = macho_loader_load(app_path, logger, true);
+  if (!app_loader) {
+    lambchop_err(logger, "failed to load app(%s)\n", app_path);
+    goto out;
+  }
+
   ret = true;
   goto out;
 
 out:
   macho_loader_free(dyld_loader);
+  macho_loader_free(app_loader);
 
   return ret;
 }
