@@ -31,6 +31,11 @@ static int64_t macho_loader_get_dyld_slide() {
   return -0x100000000;
 }
 
+static int64_t macho_loader_get_app_slide() {
+  // TODO randomize
+  return 0x200000000;
+}
+
 static void macho_loader_free(macho_loader *loader) {
   if (!loader) {
     return;
@@ -291,7 +296,7 @@ static bool macho_loader_load_segments(macho_loader *loader) {
   return true;
 }
 
-static macho_loader *macho_loader_load(char *path, lambchop_logger *logger) {
+static macho_loader *macho_loader_load(char *path, lambchop_logger *logger, bool is_app) {
   macho_loader *loader = NULL;
   char *img = NULL;
   size_t size;
@@ -309,10 +314,14 @@ static macho_loader *macho_loader_load(char *path, lambchop_logger *logger) {
   loader->img = img;
   loader->imgsize = size;
   loader->logger = logger;
-  loader->slide = macho_loader_get_dyld_slide();
+  if (is_app) {
+    loader->slide = macho_loader_get_app_slide();
+  } else {
+    loader->slide = macho_loader_get_dyld_slide();
+  }
 
   lambchop_info(logger, "%s load start\n", path);
-  if (!macho_loader_prepare(loader, false)) {
+  if (!macho_loader_prepare(loader, is_app)) {
     lambchop_err(logger, "failed to prepare loader\n");
     goto err;
   }
@@ -338,7 +347,7 @@ bool lambchop_macho_load(char *path, lambchop_logger *logger, char **envp, char 
   macho_loader *dyld_loader = NULL;
   bool ret = false;
 
-  dyld_loader = macho_loader_load(path, logger);
+  dyld_loader = macho_loader_load(path, logger, false);
   if (!dyld_loader) {
     lambchop_err(logger, "failed to load dyld\n");
     goto out;
