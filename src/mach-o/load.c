@@ -24,6 +24,8 @@ typedef struct {
   void **segments;
   uint32_t nsegs;
   int64_t slide;
+  char **envp;
+  char **apple;
 } macho_loader;
 
 static int64_t macho_loader_get_dyld_slide() {
@@ -300,7 +302,7 @@ static bool macho_loader_load(macho_loader *loader) {
   return true;
 }
 
-bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger) {
+bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger, char **envp, char **apple) {
   macho_loader *loader = NULL;
   bool ret;
 
@@ -313,6 +315,8 @@ bool lambchop_macho_load(char *img, size_t size, lambchop_logger *logger) {
   loader->imgsize = size;
   loader->logger = logger;
   loader->slide = macho_loader_get_dyld_slide();
+  loader->envp = envp;
+  loader->apple = apple;
 
   lambchop_info(logger, "mach-o load start\n");
   if (!macho_loader_prepare(loader)) {

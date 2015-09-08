@@ -25,7 +25,7 @@ static bool readn(int fd, char *buf, size_t size) {
   return true;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv, char **envp, char **apple) {
   lambchop_logger logger;
   char *path;
   int fd, ret = 0;
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "failed to dump %s\n", path);
     goto err;
   }
-  if (!lambchop_macho_load(buf, size, &logger)) {
+  if (!lambchop_macho_load(buf, size, &logger, envp, apple)) {
     fprintf(stderr, "failed to load %s\n", path);
     goto err;
   }
