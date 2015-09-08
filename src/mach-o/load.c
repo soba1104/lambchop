@@ -139,7 +139,7 @@ GENERIC_PREPARE_LC(function_starts, struct linkedit_data_command);
 GENERIC_PREPARE_LC(data_in_code, struct linkedit_data_command);
 GENERIC_PREPARE_LC(code_signature, struct linkedit_data_command);
 
-static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t ncmds) {
+static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t ncmds, bool is_app) {
   char *ub = loader->img + loader->imgsize;
   int i;
   for (i = 0; i < ncmds; i++) {
@@ -169,8 +169,12 @@ static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t nc
       PREPARE_LC_STMT(LC_DATA_IN_CODE, data_in_code)
       PREPARE_LC_STMT(LC_CODE_SIGNATURE, code_signature)
       default:
-        ERR("illegal or unsupported load command: 0x%x\n", command->cmd);
-        return false;
+        // アプリケーションの場合は segment 系命令以外は全て無視していい。
+        // なので、未対応の LC が来ても特にエラーは返さない。
+        if (!is_app) {
+          ERR("illegal or unsupported load command: 0x%x\n", command->cmd);
+          return false;
+        }
     }
     ptr += command->cmdsize;
   }
@@ -181,7 +185,7 @@ err:
   return false;
 }
 
-static bool macho_loader_prepare(macho_loader *loader) {
+static bool macho_loader_prepare(macho_loader *loader, bool is_app) {
   char *ptr = loader->img;
   uint32_t magic = *(uint32_t*)(ptr);
   uint32_t ncmds;
@@ -202,7 +206,7 @@ static bool macho_loader_prepare(macho_loader *loader) {
   }
 
   DEBUG("prepare lc: ncmds = %u\n", ncmds);
-  if (!macho_loader_prepare_lc(loader, ptr, ncmds)) {
+  if (!macho_loader_prepare_lc(loader, ptr, ncmds, is_app)) {
     return false;
   }
   if (!loader->segments) {
@@ -287,10 +291,6 @@ static bool macho_loader_load_segments(macho_loader *loader) {
   return true;
 }
 
-static bool macho_loader_setup_thread(macho_loader *loader) {
-  return true;
-}
-
 static bool macho_loader_load(macho_loader *loader) {
   if (!macho_loader_load_segments(loader)) {
     ERR("failed to load segments\n");
@@ -321,16 +321,12 @@ static macho_loader *macho_loader_load_dyld(char *path, lambchop_logger *logger)
   loader->slide = macho_loader_get_dyld_slide();
 
   lambchop_info(logger, "dyld load start\n");
-  if (!macho_loader_prepare(loader)) {
+  if (!macho_loader_prepare(loader, false)) {
     lambchop_err(logger, "failed to prepare loader\n");
     goto err;
   }
   if (!macho_loader_load(loader)) {
     lambchop_err(logger, "failed to load image\n");
-    goto err;
-  }
-  if (!macho_loader_setup_thread(loader)) {
-    lambchop_err(logger, "failed to setup thread\n");
     goto err;
   }
   lambchop_info(logger, "dyld load finish\n");
