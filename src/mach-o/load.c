@@ -24,6 +24,10 @@ typedef struct {
   void **segments;
   uint32_t nsegs;
   uint64_t hdrvm;
+  uint32_t symoff;
+  uint32_t nsyms;
+  uint32_t stroff;
+  uint32_t strsize;
   int64_t slide;
 } macho_loader;
 
@@ -116,6 +120,58 @@ static bool macho_loader_prepare_lc_id_dylinker(macho_loader *loader, struct loa
   return true;
 }
 
+static ssize_t macho_loader_strlen(char *p, char *ub) {
+  int i;
+  for (i = 0; (p + i) < ub &&  p[i]; i++);
+  return (p + i) == ub ? -1 : i;
+}
+
+static bool macho_loader_prepare_lc_symtab(macho_loader *loader, struct load_command *__command) {
+  struct symtab_command *command = (struct symtab_command*)__command;
+  char *ub = ((char*)command) + command->cmdsize, *p = (char*)(command + 1);
+  char *sym_ub, *str_ub;
+  uint64_t symsize;
+  int sym_i, str_i;
+
+  if (p != ub) {
+    ERR("invalid symtab command: invalid command size\n");
+    return false;
+  }
+  if (loader->is32) {
+    symsize = sizeof(struct nlist) * command->nsyms;
+  } else {
+    symsize = sizeof(struct nlist_64) * command->nsyms;
+  }
+  if ((command->symoff + symsize) > loader->imgsize) {
+    ERR("invalid symtab command: too large symbol table\n");
+    return false;
+  }
+  if ((command->stroff + command->strsize) > loader->imgsize) {
+    ERR("invalid symtab command: too large string table\n");
+    return false;
+  }
+
+  sym_ub = loader->img + command->symoff + symsize;
+  str_ub = loader->img + command->stroff + command->strsize;
+  str_i = 0;
+  for (sym_i = 0; sym_i < command->nsyms; sym_i++) {
+    char *string_table = loader->img + command->stroff;
+    ssize_t len = macho_loader_strlen(string_table + str_i, str_ub);
+    if (len < 0) {
+      ERR("invalid symtab command: invaild symbol string\n");
+      return false;
+    }
+    str_i += len;
+  }
+
+  loader->symoff = command->symoff;
+  loader->nsyms = command->nsyms;
+  loader->stroff = command->stroff;
+  loader->strsize = command->strsize;
+
+  return true;
+}
+
 static bool macho_loader_prepare_lc_unixthread(macho_loader *loader, struct load_command *__command) {
   struct thread_command *command = (struct thread_command*)__command;
   char *ub = ((char*)command) + command->cmdsize, *p = (char*)(command + 1);
@@ -139,7 +195,6 @@ static bool macho_loader_prepare_lc_##name(macho_loader *loader, struct load_com
   return true; \
 }
 
-GENERIC_PREPARE_LC(symtab, struct symtab_command);
 GENERIC_PREPARE_LC(dysymtab, struct dysymtab_command);
 GENERIC_PREPARE_LC(uuid, struct uuid_command);
 GENERIC_PREPARE_LC(version_min_macosx, struct version_min_command);
