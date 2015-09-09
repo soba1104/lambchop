@@ -23,6 +23,7 @@ typedef struct {
   lambchop_logger *logger;
   void **segments;
   uint32_t nsegs;
+  uint64_t hdrvm;
   int64_t slide;
 } macho_loader;
 
@@ -90,6 +91,10 @@ static bool macho_loader_prepare_lc_segment_64(macho_loader *loader, struct load
   loader->segments = segs;
   loader->segments[loader->nsegs] = command;
   loader->nsegs++;
+  if (command->fileoff == 0 && command->filesize > 0) {
+    loader->hdrvm = command->vmaddr;
+  }
+
   return true;
 }
 
@@ -216,6 +221,10 @@ static bool macho_loader_prepare(macho_loader *loader, bool is_app) {
   }
   if (!loader->segments) {
     ERR("no segment found\n");
+    return false;
+  }
+  if (!loader->hdrvm) {
+    ERR("header segment not found\n");
     return false;
   }
 
