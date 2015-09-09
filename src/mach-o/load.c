@@ -343,8 +343,40 @@ err:
   return NULL;
 }
 
+char **macho_loader_setup_dyld_args(macho_loader *loader, char **envp, char **apple) {
+  int numenv, numapple, i;
+  char **args = NULL;
+
+  for (numenv = 0; envp[numenv]; numenv++) {
+    DEBUG("envp[%d] = %s\n", numenv, envp[numenv]);
+  }
+  numenv++;
+
+  for (numapple = 0; apple[numapple]; numapple++) {
+    DEBUG("apple[%d] = %s\n", numapple, apple[numapple]);
+  }
+  numapple++;
+
+  DEBUG("numenv = %d, numapple = %d\n", numenv, numapple);
+  args = malloc(sizeof(char*) * (numenv + numapple));
+  if (!args) {
+    ERR("failed to allocate dyld args buffer: %s\n", strerror(errno));
+    return NULL;
+  }
+
+  for (i = 0; i < numenv; i++) {
+    args[i] = envp[i];
+  }
+  for (i = 0; i < numapple; i++) {
+    args[numenv + i] = apple[i];
+  }
+
+  return args;
+}
+
 bool lambchop_macho_load(char *app_path, char *dyld_path, lambchop_logger *logger, char **envp, char **apple) {
   macho_loader *dyld_loader = NULL, *app_loader = NULL;
+  char **args = NULL;
   bool ret = false;
 
   // TODO dyld のパスを引数で受け取るようにする。
@@ -360,12 +392,21 @@ bool lambchop_macho_load(char *app_path, char *dyld_path, lambchop_logger *logge
     goto out;
   }
 
+  args = macho_loader_setup_dyld_args(dyld_loader, envp, apple);
+  if (!args) {
+    lambchop_err(logger, "failed to setup dyld args\n");
+    goto out;
+  }
+
   ret = true;
   goto out;
 
 out:
   macho_loader_free(dyld_loader);
   macho_loader_free(app_loader);
+  if (args) {
+    free(args);
+  }
 
   return ret;
 }
