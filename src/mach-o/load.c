@@ -129,9 +129,8 @@ static ssize_t macho_loader_strlen(char *p, char *ub) {
 static bool macho_loader_prepare_lc_symtab(macho_loader *loader, struct load_command *__command) {
   struct symtab_command *command = (struct symtab_command*)__command;
   char *ub = ((char*)command) + command->cmdsize, *p = (char*)(command + 1);
-  char *sym_ub, *str_ub;
   uint64_t symsize;
-  int sym_i, str_i;
+  int i;
 
   if (p != ub) {
     ERR("invalid symtab command: invalid command size\n");
@@ -151,17 +150,21 @@ static bool macho_loader_prepare_lc_symtab(macho_loader *loader, struct load_com
     return false;
   }
 
-  sym_ub = loader->img + command->symoff + symsize;
-  str_ub = loader->img + command->stroff + command->strsize;
-  str_i = 0;
-  for (sym_i = 0; sym_i < command->nsyms; sym_i++) {
-    char *string_table = loader->img + command->stroff;
-    ssize_t len = macho_loader_strlen(string_table + str_i, str_ub);
-    if (len < 0) {
+  ub = loader->img + command->stroff + command->strsize;
+  for (i = 0; i < command->nsyms; i++) {
+    void *symbol_table = loader->img + command->symoff;
+    char *string_table = loader->img + command->stroff, *sym;
+    if (loader->is32) {
+      struct nlist *nl = ((struct nlist*)symbol_table) + i;
+      sym = nl->n_un.n_strx ? string_table + nl->n_un.n_strx : "\"\"";
+    } else {
+      struct nlist_64 *nl = ((struct nlist_64*)symbol_table) + i;
+      sym = nl->n_un.n_strx ? string_table + nl->n_un.n_strx : "\"\"";
+    }
+    if (macho_loader_strlen(sym, ub) < 0) {
       ERR("invalid symtab command: invaild symbol string\n");
       return false;
     }
-    str_i += len;
   }
 
   loader->symoff = command->symoff;
