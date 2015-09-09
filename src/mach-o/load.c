@@ -438,6 +438,31 @@ char **macho_loader_setup_dyld_args(macho_loader *loader, char **envp, char **ap
   return args;
 }
 
+static uint64_t macho_loader_find_symbol(macho_loader *loader, const char *name) {
+  void *symbol_table = loader->img + loader->symoff;
+  char *string_table = loader->img + loader->stroff;
+  uint32_t i;
+
+  for (i = 0; i < loader->nsyms; i++) {
+    char *sym;
+    uint64_t val;
+    if (loader->is32) {
+      struct nlist *nl = ((struct nlist*)symbol_table) + i;
+      sym = nl->n_un.n_strx ? string_table + nl->n_un.n_strx : "\"\"";
+      val = nl->n_value;
+    } else {
+      struct nlist_64 *nl = ((struct nlist_64*)symbol_table) + i;
+      sym = nl->n_un.n_strx ? string_table + nl->n_un.n_strx : "\"\"";
+      val = nl->n_value;
+    }
+    if (strcmp(sym, name) == 0) {
+      return val;
+    }
+  }
+
+  return 0;
+}
+
 bool lambchop_macho_load(char *app_path, char *dyld_path, lambchop_logger *logger, char **envp, char **apple) {
   macho_loader *dyld_loader = NULL, *app_loader = NULL;
   char **args = NULL;
