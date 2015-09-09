@@ -96,7 +96,7 @@ static bool macho_loader_prepare_lc_segment_64(macho_loader *loader, struct load
   loader->segments[loader->nsegs] = command;
   loader->nsegs++;
   if (command->fileoff == 0 && command->filesize > 0) {
-    loader->hdrvm = command->vmaddr;
+    loader->hdrvm = command->vmaddr + loader->slide;
   }
 
   return true;
@@ -466,10 +466,27 @@ static uint64_t macho_loader_find_symbol(macho_loader *loader, const char *name)
   return 0;
 }
 
-bool lambchop_macho_load(char *app_path, char *dyld_path, lambchop_logger *logger, char **envp, char **apple) {
+static void *macho_loader_call_dyld(macho_loader *dyld_loader, macho_loader *app_loader, char **args) {
+  lambchop_logger *logger = dyld_loader->logger;
+  uintptr_t glue = 0;
+  void *(*dyldfunc)(uint64_t app_hdr, int argc, char **args, intptr_t slide, uint64_t dyld_hdr, uintptr_t *glue);
+  const char *dyldfunc_name = "__ZN13dyldbootstrap5startEPK12macho_headeriPPKclS2_Pm";
+  uint64_t dyldfunc_addr;
+
+  dyldfunc_addr = macho_loader_find_symbol(dyld_loader, dyldfunc_name);
+  if (!dyldfunc_addr) {
+    lambchop_err(logger, "failed to find dyld symbol\n");
+    return NULL;
+  }
+  dyldfunc = (void*)(dyldfunc_addr + dyld_loader->slide);
+
+  return dyldfunc(app_loader->hdrvm, 0, args, dyld_loader->slide, dyld_loader->hdrvm, &glue);
+}
+
+void *lambchop_macho_load(char *app_path, char *dyld_path, lambchop_logger *logger, char **envp, char **apple) {
   macho_loader *dyld_loader = NULL, *app_loader = NULL;
   char **args = NULL;
-  bool ret = false;
+  void *mainfunc = NULL;
 
   // TODO dyld のパスを引数で受け取るようにする。
   dyld_loader = macho_loader_load(dyld_path, logger, false);
@@ -490,8 +507,7 @@ bool lambchop_macho_load(char *app_path, char *dyld_path, lambchop_logger *logge
     goto out;
   }
 
-  ret = true;
-  goto out;
+  mainfunc = macho_loader_call_dyld(dyld_loader, app_loader, args);
 
 out:
   macho_loader_free(dyld_loader);
@@ -500,5 +516,5 @@ out:
     free(args);
   }
 
-  return ret;
+  return mainfunc;
 }
