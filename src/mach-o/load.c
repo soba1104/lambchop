@@ -66,12 +66,16 @@ static macho_loader *macho_loader_alloc(void) {
   void *segs; \
   int i; \
 \
+  if (p > ub) { \
+    ERR("invalid segment/segment64 command: invalid command size\n"); \
+    return false; \
+  } \
   for (i = 0; i < command->nsects; i++) { \
     secttype *sections = (secttype*)(command+1); \
     secttype *section = sections + i; \
     p += sizeof(secttype); \
     if (p > ub) { \
-      ERR("too large section\n"); \
+      ERR("too large section info\n"); \
       return false; \
     } \
   } \
