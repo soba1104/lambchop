@@ -1,6 +1,7 @@
 #ifndef __LAMBCHOP_SRC_LAMBCHOP_H__
 #define __LAMBCHOP_SRC_LAMBCHOP_H__
 
+#include <stdint.h>
 #include <stdbool.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -34,6 +35,6 @@ void *lambchop_macho_load(char *app_path, char *dyld_path, lambchop_logger *logg
 
 bool lambchop_file_read_all(const char *path, lambchop_logger *logger, char **buf, size_t *size);
 
-int lambchop_vm_run(void *mainfunc);
+int lambchop_vm_run(void *mainfunc, lambchop_logger *logger);
 
 #endif

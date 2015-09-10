@@ -34,7 +34,7 @@ int main(int argc, char **argv, char **envp, char **apple) {
     lambchop_err(&logger, "failed to load %s, %s\n", app_path, dyld_path);
     goto err;
   }
-  ret = lambchop_vm_run(mainfunc);
+  ret = lambchop_vm_run(mainfunc, &logger);
   goto out;
 
 err:
