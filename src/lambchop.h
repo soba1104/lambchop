@@ -34,4 +34,6 @@ void *lambchop_macho_load(char *app_path, char *dyld_path, lambchop_logger *logg
 
 bool lambchop_file_read_all(const char *path, lambchop_logger *logger, char **buf, size_t *size);
 
+int lambchop_vm_run(void *mainfunc);
+
 #endif

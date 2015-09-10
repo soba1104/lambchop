@@ -6,7 +6,7 @@
 int main(int argc, char **argv, char **envp, char **apple) {
   lambchop_logger logger;
   char *app_path, *dyld_path;
-  int (*mainfunc)(void); // TODO 引数を扱えるようにする。
+  void *mainfunc;
   int ret = 0;
 
   if (argc < 3) {
@@ -34,7 +34,7 @@ int main(int argc, char **argv, char **envp, char **apple) {
     lambchop_err(&logger, "failed to load %s, %s\n", app_path, dyld_path);
     goto err;
   }
-  ret = mainfunc();
+  ret = lambchop_vm_run(mainfunc);
   goto out;
 
 err:
