@@ -60,46 +60,60 @@ static macho_loader *macho_loader_alloc(void) {
   return loader;
 }
 
-// TODO section の解釈
+#define MACHO_LOADER_PREPARE_LC_SEGMENT_COMMON(segtype, secttype) do { \
+  segtype *command = (segtype*)__command; \
+  char *ub = ((char*)command) + command->cmdsize, *p = (char*)(command + 1); \
+  void *segs; \
+  int i; \
+\
+  for (i = 0; i < command->nsects; i++) { \
+    secttype *sections = (secttype*)(command+1); \
+    secttype *section = sections + i; \
+    p += sizeof(secttype); \
+    if (p > ub) { \
+      ERR("too large section\n"); \
+      return false; \
+    } \
+  } \
+  if (p != ub) { \
+    ERR("invalid segment/segment_64 command\n"); \
+    return false; \
+  } \
+  for (i = 0; i < sizeof(command->segname) && command->segname[i]; i++); \
+  if (i == sizeof(command->segname)) { \
+    ERR("invalid segment name\n"); \
+    return false; \
+  } \
+  DEBUG("preparing segment: %s\n", command->segname); \
+\
+  segs = realloc(loader->segments, sizeof(void*) * (loader->nsegs + 1)); \
+  if (!segs) { \
+    ERR("failed to allocate segment buffer: %s\n", strerror(errno)); \
+    return false; \
+  } \
+  loader->segments = segs; \
+  loader->segments[loader->nsegs] = command; \
+  loader->nsegs++; \
+  if (command->fileoff == 0 && command->filesize > 0) { \
+    loader->hdrvm = command->vmaddr + loader->slide; \
+  } \
+  return true; \
+} while(0)
+
+static bool macho_loader_prepare_lc_segment(macho_loader *loader, struct load_command *__command) {
+  if (!loader->is32) {
+    ERR("unexpected 64bit segment\n");
+    return false;
+  }
+  MACHO_LOADER_PREPARE_LC_SEGMENT_COMMON(struct segment_command, struct section);
+}
+
 static bool macho_loader_prepare_lc_segment_64(macho_loader *loader, struct load_command *__command) {
-  struct segment_command_64 *command = (struct segment_command_64*)__command;
-  char *ub = ((char*)command) + command->cmdsize, *p = (char*)(command + 1);
-  void *segs;
-  int i;
-
-  for (i = 0; i < command->nsects; i++) {
-    struct section_64 *sections = (struct section_64*)(command+1);
-    struct section_64 *section = sections + i;
-    p += sizeof(struct section_64);
-    if (p > ub) {
-      ERR("too large section\n");
-      return false;
-    }
-  }
-  if (p != ub) {
-    ERR("invalid segment_64 command\n");
+  if (loader->is32) {
+    ERR("unexpected 32bit segment\n");
     return false;
   }
-  for (i = 0; i < sizeof(command->segname) && command->segname[i]; i++);
-  if (i == sizeof(command->segname)) {
-    ERR("invalid segment name\n");
-    return false;
-  }
-  DEBUG("preparing segment: %s\n", command->segname);
-
-  segs = realloc(loader->segments, sizeof(void*) * (loader->nsegs + 1));
-  if (!segs) {
-    ERR("failed to allocate segment buffer: %s\n", strerror(errno));
-    return false;
-  }
-  loader->segments = segs;
-  loader->segments[loader->nsegs] = command;
-  loader->nsegs++;
-  if (command->fileoff == 0 && command->filesize > 0) {
-    loader->hdrvm = command->vmaddr + loader->slide;
-  }
-
-  return true;
+  MACHO_LOADER_PREPARE_LC_SEGMENT_COMMON(struct segment_command_64, struct section_64);
 }
 
 static bool macho_loader_prepare_lc_id_dylinker(macho_loader *loader, struct load_command *__command) {
@@ -225,6 +239,7 @@ static bool macho_loader_prepare_lc(macho_loader *loader, char *ptr, uint32_t nc
         } \
         break;
       PREPARE_LC_STMT(LC_SEGMENT_64, segment_64)
+      PREPARE_LC_STMT(LC_SEGMENT, segment)
       PREPARE_LC_STMT(LC_SYMTAB, symtab)
       PREPARE_LC_STMT(LC_DYSYMTAB, dysymtab)
       PREPARE_LC_STMT(LC_ID_DYLINKER, id_dylinker)
