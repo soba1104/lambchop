@@ -31,14 +31,14 @@ typedef struct {
   int64_t slide;
 } macho_loader;
 
-static int64_t macho_loader_get_dyld_slide() {
+static int64_t macho_loader_get_dyld_slide(bool is32) {
   // TODO randomize
-  return -0x100000000;
+  return is32 ? 0x800000000 : -0x100000000;
 }
 
-static int64_t macho_loader_get_app_slide() {
+static int64_t macho_loader_get_app_slide(bool is32) {
   // TODO randomize
-  return 0x200000000;
+  return is32 ? 0x800000000 : 0x200000000;
 }
 
 static void macho_loader_free(macho_loader *loader) {
@@ -292,6 +292,12 @@ static bool macho_loader_prepare(macho_loader *loader, bool is_app) {
     return false;
   }
 
+  if (is_app) {
+    loader->slide = macho_loader_get_app_slide(loader->is32);
+  } else {
+    loader->slide = macho_loader_get_dyld_slide(loader->is32);
+  }
+
   DEBUG("prepare lc: ncmds = %u\n", ncmds);
   if (!macho_loader_prepare_lc(loader, ptr, ncmds, is_app)) {
     return false;
@@ -400,11 +406,6 @@ static macho_loader *macho_loader_load(char *path, lambchop_logger *logger, bool
   loader->img = img;
   loader->imgsize = size;
   loader->logger = logger;
-  if (is_app) {
-    loader->slide = macho_loader_get_app_slide();
-  } else {
-    loader->slide = macho_loader_get_dyld_slide();
-  }
 
   lambchop_info(logger, "%s load start\n", path);
   if (!macho_loader_prepare(loader, is_app)) {
