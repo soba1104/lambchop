@@ -9,3 +9,4 @@ install_manifest.txt
 /lib
 /include
 /src/lambchop
+/src/vm_main.c
