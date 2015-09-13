@@ -79,7 +79,18 @@ case <%= opcode %>:
   end
 
   def gen_operand(operand, idx)
-    ""
+    case operand
+    when :opcode_reg
+      gen_operand_opcode_reg(idx)
+    else
+      ""
+    end
+  end
+
+  def gen_operand_opcode_reg(idx)
+    return <<-EOS
+#{operand_var(idx)} = #{opcode_var()} & 0x07;
+    EOS
   end
 
   def fetch_modrm(ipreg, dst, indent)
@@ -94,9 +105,8 @@ class Instruction0x50To0x57 < Instruction
   protected
   def gen_body(ipreg)
     return <<-EOS
-uint8_t reg = opcode & 0x07;
-DEBUG("push %s\\n", regnames[reg]);
-*((uint64_t*)rsp) = *regs[reg];
+DEBUG("push %s\\n", regnames[op0]);
+*((uint64_t*)rsp) = *regs[op0];
 rsp -= sizeof(uint64_t);
     EOS
   end
