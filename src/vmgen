@@ -34,9 +34,15 @@ class Instruction
     @spec_opcodes = opcodes
   end
 
+  def self.spec_operands(operands)
+    @spec_operands = operands
+  end
+
   def initialize()
     @opcodes = self.class.instance_variable_get('@spec_opcodes')
     raise("#{self.class}: opcodes not given") unless @opcodes
+    @operands = self.class.instance_variable_get('@spec_operands')
+    raise("#{self.class}: operands not given") unless @operands
   end
 
   protected
@@ -57,6 +63,7 @@ end
 
 class Instruction0x50To0x57 < Instruction
   spec_opcodes (0..7).map{|i| "0x5#{i}"}
+  spec_operands [:opcode_reg]
 
   public
   def gen_stmt(ipreg)
@@ -71,6 +78,7 @@ end
 
 class Instruction0x83 < Instruction
   spec_opcodes ['0x83']
+  spec_operands [:modrm_reg, :modrm_modrm, :imm_s8]
 
   public
   def gen_stmt(ipreg)
@@ -99,6 +107,7 @@ end
 
 class Instruction0x89 < Instruction
   spec_opcodes ['0x89']
+  spec_operands [:modrm_reg, :modrm_modrm]
 
   public
   def gen_stmt(ipreg)
