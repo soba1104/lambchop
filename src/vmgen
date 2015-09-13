@@ -38,7 +38,7 @@ case <%= opcode %>:
 <% end -%>
 {
 <% @operands.each_with_index do |operand, idx| -%>
-  uint64_t <%= operand_name(idx) %>;
+  uint64_t <%= operand_var(idx) %>;
 <% end -%>
 <% @operands.each_with_index do |operand, idx| -%>
 <%= indent_stmt(gen_operand(operand, idx), 2) -%>
@@ -65,7 +65,11 @@ case <%= opcode %>:
     raise("#{self.class}: operands not given") unless @operands
   end
 
-  def operand_name(idx)
+  def opcode_var()
+    'opcode'
+  end
+
+  def operand_var(idx)
     "op#{idx}"
   end
 
