@@ -30,6 +30,7 @@ end
 class Instruction
   include CodeGenerator
 
+  protected
   def self.spec_opcodes(opcodes)
     @spec_opcodes = opcodes
   end
@@ -45,7 +46,6 @@ class Instruction
     raise("#{self.class}: operands not given") unless @operands
   end
 
-  protected
   def gen(body)
     return <<-EOS
 #{@opcodes.map{|op| "case #{op}:"}.join("\n")}
@@ -56,6 +56,7 @@ class Instruction
     EOS
   end
 
+  private
   def fetch_modrm(ipreg, dst, indent)
     indent_stmt("#{dst} = FETCH_MODRM(#{ipreg});", indent)
   end
