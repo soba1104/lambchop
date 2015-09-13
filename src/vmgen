@@ -64,6 +64,7 @@ case 0x83:
     DEBUG("opcode 0x83: unsupported op_ext 0x%x\\n", op_ext);
     assert(false);
   }
+  break;
 }
     EOS
   end
