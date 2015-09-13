@@ -31,6 +31,16 @@ class Instruction
   include CodeGenerator
 
   protected
+  def gen(opcodes, body)
+    return <<-EOS
+#{opcodes.map{|op| "case #{op}:"}.join("\n")}
+{
+#{indent_stmt(body.chomp, 2)}
+  break;
+}
+    EOS
+  end
+
   def fetch_modrm(ipreg, dst, indent)
     indent_stmt("#{dst} = FETCH_MODRM(#{ipreg});", indent)
   end
@@ -85,19 +95,15 @@ end
 class Instruction0x89 < Instruction
   public
   def gen_stmt(ipreg)
-    return <<-EOS
-case 0x89:
-{
-  uint8_t modrm = FETCH_MODRM(#{ipreg});
-  uint8_t mod = MODRM_MOD(modrm);
-  uint8_t rm = MODRM_RM(modrm);
-  uint8_t src = MODRM_REG(modrm);
-  uint8_t dst = IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm;
-  assert(mod == MODRM_MOD_REG);
-  DEBUG("mov %s %s\\n", regnames[src], regnames[dst]);
-  *regs[dst] = *regs[src];
-  break;
-}
+    gen(['0x89'], <<-EOS)
+uint8_t modrm = FETCH_MODRM(#{ipreg});
+uint8_t mod = MODRM_MOD(modrm);
+uint8_t rm = MODRM_RM(modrm);
+uint8_t src = MODRM_REG(modrm);
+uint8_t dst = IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm;
+assert(mod == MODRM_MOD_REG);
+DEBUG("mov %s %s\\n", regnames[src], regnames[dst]);
+*regs[dst] = *regs[src];
     EOS
   end
 end
