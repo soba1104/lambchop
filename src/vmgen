@@ -89,7 +89,7 @@ case <%= opcode %>:
 
   def gen_operand_opcode_reg(idx)
     return <<-EOS
-#{operand_var(idx)} = #{opcode_var()} & 0x07;
+#{operand_var(idx)} = (uint64_t)regs[#{opcode_var()} & 0x07];
     EOS
   end
 
@@ -105,8 +105,8 @@ class Instruction0x50To0x57 < Instruction
   protected
   def gen_body(ipreg)
     return <<-EOS
-DEBUG("push %s\\n", regnames[op0]);
-*((uint64_t*)rsp) = *regs[op0];
+DEBUG("push 0x%x\\n", #{operand_var(0)});
+*((uint64_t*)rsp) = *((uint64_t*)#{operand_var(0)});
 rsp -= sizeof(uint64_t);
     EOS
   end
