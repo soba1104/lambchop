@@ -47,7 +47,7 @@ case <%= opcode %>:
 <%= indent_stmt(gen_modrm_fetch(ipreg), 2) -%>
 <% end -%>
 <% @operands.each_with_index do |operand, idx| -%>
-<%= indent_stmt(gen_operand(operand, idx), 2) -%>
+<%= indent_stmt(gen_operand(operand, idx, ipreg), 2) -%>
 <% end -%>
 <%= indent_stmt(gen_debug(), 2) -%>
 <%= indent_stmt(gen_body(ipreg), 2) -%>
@@ -87,6 +87,10 @@ case <%= opcode %>:
     "op#{idx}"
   end
 
+  def rex_var()
+    'rex'
+  end
+
   def modrm_var()
     'modrm'
   end
@@ -107,7 +111,7 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
     raise("#{self.class}: gen_body not implemented")
   end
 
-  def gen_operand(operand, idx)
+  def gen_operand(operand, idx, ipreg)
     case operand
     when :opcode_reg
       gen_operand_opcode_reg(idx)
@@ -115,8 +119,10 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
       gen_operand_modrm_reg(idx)
     when :modrm_modrm
       gen_operand_modrm_modrm(idx)
+    when :modrm_extop
+      gen_operand_modrm_extop(idx)
     when :imm_s8
-      gen_operand_imm_s8(idx)
+      gen_operand_imm_s8(idx, ipreg)
     else
       raise("#{self.class}: unknown operand #{operand}")
     end
@@ -130,6 +136,7 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
 
   def gen_operand_modrm_reg(idx)
     return <<-EOS
+#{operand_var(idx)} = (uint64_t)regs[MODRM_REG(#{modrm_var()})];
     EOS
   end
 
@@ -138,8 +145,15 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
     EOS
   end
 
-  def gen_operand_imm_s8(idx)
+  def gen_operand_modrm_extop(idx)
     return <<-EOS
+#{operand_var(idx)} = MODRM_EXTOP(#{modrm_var()});
+    EOS
+  end
+
+  def gen_operand_imm_s8(idx, ipreg)
+    return <<-EOS
+#{operand_var(idx)} = FETCH_IMM_S8(#{ipreg});
     EOS
   end
 
@@ -167,13 +181,13 @@ end
 class Instruction0x83 < Instruction
   spec_mnemonic 'add/or/adc/sbb/and/sub/xor/cmp'
   spec_opcodes ['0x83']
-  spec_operands [:modrm_reg, :modrm_modrm, :imm_s8]
+  spec_operands [:modrm_extop, :modrm_modrm, :imm_s8]
 
   protected
   def gen_body(ipreg)
     return <<-EOS
 int8_t imm = FETCH_IMM_S8(#{ipreg});
-uint8_t op_ext = MODRM_OP_EXT(modrm);
+uint8_t op_ext = MODRM_EXTOP(modrm);
 uint8_t mod = MODRM_MOD(modrm);
 uint8_t rm = MODRM_RM(modrm);
 uint8_t target = IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm;
@@ -285,7 +299,7 @@ class VMGen
 #define MODRM_REG(modrm) (((modrm) & 0x38) >> 3)
 #define MODRM_MOD(modrm) (((modrm) & 0xc0) >> 6)
 #define MODRM_RM(modrm) ((modrm) & 0x07)
-#define MODRM_OP_EXT(modrm) (((modrm) & 0x38) >> 3)
+#define MODRM_EXTOP(modrm) (((modrm) & 0x38) >> 3)
 #define MODRM_MOD_MEM_DISP0 0
 #define MODRM_MOD_MEM_DISP8 1
 #define MODRM_MOD_MEM_DISP32 2
