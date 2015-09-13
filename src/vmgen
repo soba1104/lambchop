@@ -2,27 +2,26 @@
 
 require 'erb'
 
-class Instruction
-  private
-  REGNAMES = [
-    'RAX',
-    'RCX',
-    'RDX',
-    'RBX',
-    'RSP',
-    'RBP',
-    'RSI',
-    'RDI',
-    'R8',
-    'R9',
-    'R10',
-    'R11',
-    'R12',
-    'R13',
-    'R14',
-    'R15',
-  ]
+REGNAMES = [
+  'rax',
+  'rcx',
+  'rdx',
+  'rbx',
+  'rsp',
+  'rbp',
+  'rsi',
+  'rdi',
+  'r8',
+  'r9',
+  'r10',
+  'r11',
+  'r12',
+  'r13',
+  'r14',
+  'r15',
+]
 
+class Instruction
   protected
   def regname(id)
     REGNAMES[id]
@@ -175,34 +174,40 @@ class VMGen
 #define FETCH_IMM_SB(ipreg) (*((int8_t*)(ipreg++)))
 
 static const char *regnames[] = {
-  "RAX",
-  "RCX",
-  "RDX",
-  "RBX",
-  "RSP",
-  "RBP",
-  "RSI",
-  "RDI",
-  "R8",
-  "R9",
-  "R10",
-  "R11",
-  "R12",
-  "R13",
-  "R14",
-  "R15"
+  "rax",
+  "rcx",
+  "rdx",
+  "rbx",
+  "rsp",
+  "rbp",
+  "rsi",
+  "rdi",
+  "r8",
+  "r9",
+  "r10",
+  "r11",
+  "r12",
+  "r13",
+  "r14",
+  "r15"
 };
 
 int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
 {
-  uint64_t rip, regs[16];
+  uint64_t rip, *regs[16];
   uint8_t opcode, rex, modrm;
   void *stack = malloc(stacksize);
+<% REGNAMES.each do |r| -%>
+  uint64_t <%= r %>;
+<% end -%>
+<% REGNAMES.each_with_index do |r, i| -%>
+  regs[<%= i %>] = &<%= r %>;
+<% end -%>
 
   assert(stack); // TODO: return error
   rip = (uint64_t)func;
-  regs[REGISTER_RBP] = (uint64_t)stack;
-  regs[REGISTER_RSP] = (uint64_t)stack;
+  rbp = (uint64_t)stack;
+  rsp = (uint64_t)stack;
 
   while (true) {
 <% indent = 4 -%>
