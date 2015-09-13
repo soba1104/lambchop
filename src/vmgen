@@ -30,6 +30,22 @@ end
 class Instruction
   include CodeGenerator
 
+  public
+  def gen(ipreg)
+    ERB.new(<<-EOS, 0, '%-').result(binding)
+<% @opcodes.each do |opcode| -%>
+case <%= opcode %>:
+<% end -%>
+{
+<% @operands.each do |operand| -%>
+<%= indent_stmt(gen_operand(operand), 2) -%>
+<% end -%>
+<%= indent_stmt(gen_body(ipreg), 2) -%>
+  break;
+}
+    EOS
+  end
+
   protected
   def self.spec_opcodes(opcodes)
     @spec_opcodes = opcodes
@@ -46,22 +62,11 @@ class Instruction
     raise("#{self.class}: operands not given") unless @operands
   end
 
-  def gen(body)
-    ERB.new(<<-EOS, 0, '%-').result(binding)
-<% @opcodes.each do |opcode| -%>
-case <%= opcode %>:
-<% end -%>
-{
-<% @operands.each do |operand| -%>
-<%= indent_stmt(gen_operand(operand), 2) -%>
-<% end -%>
-<%= indent_stmt(body.chomp, 2) %>
-  break;
-}
-    EOS
+  private
+  def gen_body(ipreg)
+    raise("#{self.class}: gen_body not implemented")
   end
 
-  private
   def gen_operand(operand)
     ""
   end
@@ -75,9 +80,9 @@ class Instruction0x50To0x57 < Instruction
   spec_opcodes (0..7).map{|i| "0x5#{i}"}
   spec_operands [:opcode_reg]
 
-  public
-  def gen_stmt(ipreg)
-    gen(<<-EOS)
+  protected
+  def gen_body(ipreg)
+    return <<-EOS
 uint8_t reg = opcode & 0x07;
 DEBUG("push %s\\n", regnames[reg]);
 *((uint64_t*)rsp) = *regs[reg];
@@ -90,9 +95,9 @@ class Instruction0x83 < Instruction
   spec_opcodes ['0x83']
   spec_operands [:modrm_reg, :modrm_modrm, :imm_s8]
 
-  public
-  def gen_stmt(ipreg)
-    gen(<<-EOS)
+  protected
+  def gen_body(ipreg)
+    return <<-EOS
 uint8_t modrm = FETCH_MODRM(#{ipreg});
 int8_t imm = FETCH_IMM_S8(#{ipreg});
 uint8_t op_ext = MODRM_OP_EXT(modrm);
@@ -119,9 +124,9 @@ class Instruction0x89 < Instruction
   spec_opcodes ['0x89']
   spec_operands [:modrm_reg, :modrm_modrm]
 
-  public
-  def gen_stmt(ipreg)
-    gen(<<-EOS)
+  protected
+  def gen_body(ipreg)
+    return <<-EOS
 uint8_t modrm = FETCH_MODRM(#{ipreg});
 uint8_t mod = MODRM_MOD(modrm);
 uint8_t rm = MODRM_RM(modrm);
@@ -164,7 +169,7 @@ class VMGen
   end
 
   def gen_instruction(inst, ipreg, indent)
-    indent_stmt(inst.gen_stmt(ipreg), indent)
+    indent_stmt(inst.gen(ipreg), indent)
   end
 
   TEMPLATE = <<-EOS
