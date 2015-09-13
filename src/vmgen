@@ -47,7 +47,7 @@ class Instruction0x83 < Instruction
 case 0x83:
 {
   uint8_t modrm = FETCH_MODRM(#{ipreg});
-  char imm = FETCH_IMM_SB(#{ipreg});
+  int8_t imm = FETCH_IMM_S8(#{ipreg});
   uint8_t op_ext = MODRM_OP_EXT(modrm);
   uint8_t mod = MODRM_MOD(modrm);
   uint8_t rm = MODRM_RM(modrm);
@@ -73,7 +73,7 @@ end
 class Instruction0x89 < Instruction
   public
   def gen_stmt(ipreg)
-    stmt = <<-EOS
+    return <<-EOS
 case 0x89:
 {
   uint8_t modrm = FETCH_MODRM(#{ipreg});
@@ -171,7 +171,7 @@ class VMGen
 #define MODRM_MOD_MEM_DISP32 2
 #define MODRM_MOD_REG 3
 
-#define FETCH_IMM_SB(ipreg) (*((int8_t*)(ipreg++)))
+#define FETCH_IMM_S8(ipreg) (*((int8_t*)(ipreg++)))
 
 static const char *regnames[] = {
   "rax",
