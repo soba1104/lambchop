@@ -2,32 +2,49 @@
 
 require 'erb'
 
-REGNAMES = [
-  'rax',
-  'rcx',
-  'rdx',
-  'rbx',
-  'rsp',
-  'rbp',
-  'rsi',
-  'rdi',
-  'r8',
-  'r9',
-  'r10',
-  'r11',
-  'r12',
-  'r13',
-  'r14',
-  'r15',
-]
-
 module CodeGenerator
+  REGNAMES = [
+    'rax',
+    'rcx',
+    'rdx',
+    'rbx',
+    'rsp',
+    'rbp',
+    'rsi',
+    'rdi',
+    'r8',
+    'r9',
+    'r10',
+    'r11',
+    'r12',
+    'r13',
+    'r14',
+    'r15',
+  ]
+
   def indent_stmt(stmt, indent)
     stmt.lines.map{|l| (' ' * indent) + l}.join()
+  end
+
+  def opcode_var()
+    'opcode'
+  end
+
+  def operand_var(idx)
+    "op#{idx}"
+  end
+
+  def rex_var()
+    'rex'
+  end
+
+  def modrm_var()
+    'modrm'
   end
 end
 
 class Instruction
+  extend CodeGenerator
   include CodeGenerator
 
   public
@@ -69,6 +86,10 @@ case <%= opcode %>:
     @spec_operands = operands
   end
 
+  def self.spec_body(body)
+    @spec_body = body
+  end
+
   def initialize()
     @mnemonic = self.class.instance_variable_get('@spec_mnemonic')
     raise("#{self.class}: mnemonic not given") unless @mnemonic
@@ -76,23 +97,9 @@ case <%= opcode %>:
     raise("#{self.class}: opcodes not given") unless @opcodes
     @operands = self.class.instance_variable_get('@spec_operands')
     raise("#{self.class}: operands not given") unless @operands
+    @body = self.class.instance_variable_get('@spec_body')
+    raise("#{self.class}: body not given") unless @body
     @fetch_modrm = !(@operands & [:modrm_reg, :modrm_modrm]).empty?
-  end
-
-  def opcode_var()
-    'opcode'
-  end
-
-  def operand_var(idx)
-    "op#{idx}"
-  end
-
-  def rex_var()
-    'rex'
-  end
-
-  def modrm_var()
-    'modrm'
   end
 
   private
@@ -108,7 +115,7 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
   end
 
   def gen_body(ipreg)
-    raise("#{self.class}: gen_body not implemented")
+    @body
   end
 
   def gen_operand(operand, idx, ipreg)
@@ -175,24 +182,17 @@ class Instruction0x50To0x57 < Instruction
   spec_mnemonic 'push'
   spec_opcodes (0..7).map{|i| "0x5#{i}"}
   spec_operands [:opcode_reg]
-
-  protected
-  def gen_body(ipreg)
-    return <<-EOS
+  spec_body <<-EOS
 *((uint64_t*)rsp) = *((uint64_t*)#{operand_var(0)});
 rsp -= sizeof(uint64_t);
-    EOS
-  end
+  EOS
 end
 
 class Instruction0x83 < Instruction
   spec_mnemonic 'add/or/adc/sbb/and/sub/xor/cmp'
   spec_opcodes ['0x83']
   spec_operands [:modrm_extop, :modrm_modrm, :imm_s8]
-
-  protected
-  def gen_body(ipreg)
-    return <<-EOS
+  spec_body <<-EOS
 switch(#{operand_var(0)}) {
 case 0x05: // SUB
 {
@@ -203,21 +203,16 @@ default:
   DEBUG("opcode 0x83: unsupported extop 0x%x\\n", #{operand_var(0)});
   assert(false);
 }
-    EOS
-  end
+  EOS
 end
 
 class Instruction0x89 < Instruction
   spec_mnemonic 'mov'
   spec_opcodes ['0x89']
   spec_operands [:modrm_reg, :modrm_modrm]
-
-  protected
-  def gen_body(ipreg)
-    return <<-EOS
+  spec_body <<-EOS
 *((uint64_t*)#{operand_var(1)}) = *((uint64_t*)#{operand_var(0)});
-    EOS
-  end
+  EOS
 end
 
 class VMGen
