@@ -57,6 +57,10 @@ case <%= opcode %>:
   end
 
   protected
+  def self.spec_mnemonic(mnemonic)
+    @spec_mnemonic = mnemonic
+  end
+
   def self.spec_opcodes(opcodes)
     @spec_opcodes = opcodes
   end
@@ -66,6 +70,8 @@ case <%= opcode %>:
   end
 
   def initialize()
+    @mnemonic = self.class.instance_variable_get('@spec_mnemonic')
+    raise("#{self.class}: mnemonic not given") unless @mnemonic
     @opcodes = self.class.instance_variable_get('@spec_opcodes')
     raise("#{self.class}: opcodes not given") unless @opcodes
     @operands = self.class.instance_variable_get('@spec_operands')
@@ -93,7 +99,7 @@ case <%= opcode %>:
       vars.push(operand_var(idx))
     end
     return <<-EOS
-//DEBUG("#{@opcodes}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.join(', ')});
+DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.join(', ')});
     EOS
   end
 
@@ -145,13 +151,13 @@ case <%= opcode %>:
 end
 
 class Instruction0x50To0x57 < Instruction
+  spec_mnemonic 'push'
   spec_opcodes (0..7).map{|i| "0x5#{i}"}
   spec_operands [:opcode_reg]
 
   protected
   def gen_body(ipreg)
     return <<-EOS
-DEBUG("push 0x%x\\n", #{operand_var(0)});
 *((uint64_t*)rsp) = *((uint64_t*)#{operand_var(0)});
 rsp -= sizeof(uint64_t);
     EOS
@@ -159,6 +165,7 @@ rsp -= sizeof(uint64_t);
 end
 
 class Instruction0x83 < Instruction
+  spec_mnemonic 'add/or/adc/sbb/and/sub/xor/cmp'
   spec_opcodes ['0x83']
   spec_operands [:modrm_reg, :modrm_modrm, :imm_s8]
 
@@ -187,6 +194,7 @@ default:
 end
 
 class Instruction0x89 < Instruction
+  spec_mnemonic 'mov'
   spec_opcodes ['0x89']
   spec_operands [:modrm_reg, :modrm_modrm]
 
@@ -313,6 +321,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
   uint64_t <%= r %>;
 <% end -%>
 <% REGNAMES.each_with_index do |r, i| -%>
+  DEBUG("address <%= r %>: 0x%x\\n", &<%= r %>);
   regs[<%= i %>] = &<%= r %>;
 <% end -%>
 
