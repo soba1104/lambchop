@@ -191,7 +191,7 @@ static const char *regnames[] = {
   "r15"
 };
 
-int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
+int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
 {
   uint64_t rip, *regs[16];
   uint8_t opcode, rex, modrm;
