@@ -49,15 +49,11 @@ end
 class Instruction0x50To0x57 < Instruction
   public
   def gen_stmt(ipreg)
-    return <<-EOS
-#{(0..7).map{|i| "case 0x5#{i}:"}.join("\n")}
-{
-  uint8_t reg = opcode & 0x07;
-  DEBUG("push %s\\n", regnames[reg]);
-  *((uint64_t*)rsp) = *regs[reg];
-  rsp -= sizeof(uint64_t);
-  break;
-}
+    gen((0..7).map{|i| "0x5#{i}"}, <<-EOS)
+uint8_t reg = opcode & 0x07;
+DEBUG("push %s\\n", regnames[reg]);
+*((uint64_t*)rsp) = *regs[reg];
+rsp -= sizeof(uint64_t);
     EOS
   end
 end
