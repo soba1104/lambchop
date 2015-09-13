@@ -142,6 +142,13 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
 
   def gen_operand_modrm_modrm(idx)
     return <<-EOS
+{
+  uint8_t __mod = MODRM_MOD(#{modrm_var()});
+  uint8_t __rm = MODRM_RM(#{modrm_var()});
+  uint8_t __regid = IS_REX_R(#{rex_var()}) ? (REX_REG_BIT | __rm) : __rm;
+  assert(__mod == MODRM_MOD_REG);
+  #{operand_var(idx)} = (uint64_t)regs[__regid];
+}
     EOS
   end
 
@@ -186,21 +193,14 @@ class Instruction0x83 < Instruction
   protected
   def gen_body(ipreg)
     return <<-EOS
-int8_t imm = FETCH_IMM_S8(#{ipreg});
-uint8_t op_ext = MODRM_EXTOP(modrm);
-uint8_t mod = MODRM_MOD(modrm);
-uint8_t rm = MODRM_RM(modrm);
-uint8_t target = IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm;
-assert(mod == MODRM_MOD_REG);
-switch(op_ext) {
+switch(#{operand_var(0)}) {
 case 0x05: // SUB
 {
-  DEBUG("sub 0x%x %s\\n", imm, regnames[target]);
-  *regs[target] -= imm;
+  *((uint64_t*)#{operand_var(1)}) -= (int8_t)#{operand_var(2)};
   break;
 }
 default:
-  DEBUG("opcode 0x83: unsupported op_ext 0x%x\\n", op_ext);
+  DEBUG("opcode 0x83: unsupported extop 0x%x\\n", #{operand_var(0)});
   assert(false);
 }
     EOS
@@ -215,13 +215,7 @@ class Instruction0x89 < Instruction
   protected
   def gen_body(ipreg)
     return <<-EOS
-uint8_t mod = MODRM_MOD(modrm);
-uint8_t rm = MODRM_RM(modrm);
-uint8_t src = MODRM_REG(modrm);
-uint8_t dst = IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm;
-assert(mod == MODRM_MOD_REG);
-DEBUG("mov %s %s\\n", regnames[src], regnames[dst]);
-*regs[dst] = *regs[src];
+*((uint64_t*)#{operand_var(1)}) = *((uint64_t*)#{operand_var(0)});
     EOS
   end
 end
