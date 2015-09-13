@@ -56,7 +56,8 @@ case 0x83:
   switch(op_ext) {
   case 0x05: // SUB
   {
-    DEBUG("SUB 0x%x %s\\n", imm, regnames[target]);
+    DEBUG("sub 0x%x %s\\n", imm, regnames[target]);
+    *regs[target] -= imm;
     break;
   }
   default:
@@ -80,7 +81,8 @@ case 0x89:
   uint8_t src = MODRM_REG(modrm);
   uint8_t dst = IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm;
   assert(mod == MODRM_MOD_REG);
-  DEBUG("MOV %s %s\\n", regnames[src], regnames[dst]);
+  DEBUG("mov %s %s\\n", regnames[src], regnames[dst]);
+  *regs[dst] = *regs[src];
   break;
 }
     EOS
