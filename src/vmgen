@@ -29,6 +29,11 @@ end
 
 class Instruction
   include CodeGenerator
+
+  protected
+  def fetch_modrm(ipreg, dst, indent)
+    indent_stmt("#{dst} = FETCH_MODRM(#{ipreg});", indent)
+  end
 end
 
 class Instruction0x50To0x57 < Instruction
