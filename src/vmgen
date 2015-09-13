@@ -2,6 +2,50 @@
 
 require 'erb'
 
+class Instruction
+  private
+  REGNAMES = [
+    'RAX',
+    'RCX',
+    'RDX',
+    'RBX',
+    'RSP',
+    'RBP',
+    'RSI',
+    'RDI',
+    'R8',
+    'R9',
+    'R10',
+    'R11',
+    'R12',
+    'R13',
+    'R14',
+    'R15',
+  ]
+
+  protected
+  def regname(id)
+    REGNAMES[id]
+  end
+end
+
+class Instruction0x50To0x57 < Instruction
+  public
+  def gen_stmt(ipreg)
+    (0..7).map{|i|
+      stmt = <<-EOS
+case 0x5#{i}:
+{
+  DEBUG("PUSH #{regname(i)}\\n");
+  #{ipreg}++;
+  break;
+}
+      EOS
+      stmt.chomp()
+    }.join("\n")
+  end
+end
+
 class VMGen
   private
 
@@ -9,7 +53,7 @@ class VMGen
     stmt.lines.map{|l| (' ' * indent) + l}.join()
   end
 
-  def fetch_rex_stmt(ipreg, dst, indent)
+  def gen_rex_fetch(ipreg, dst, indent)
     indent_stmt(<<-EOS, indent)
 {
   uint8_t *__p = (uint8_t*)#{ipreg};
@@ -22,7 +66,7 @@ class VMGen
     EOS
   end
 
-  def fetch_opcode_stmt(ipreg, dst, indent)
+  def gen_opcode_fetch(ipreg, dst, indent)
     indent_stmt(<<-EOS, indent)
 {
   uint8_t *__p = (uint8_t*)#{ipreg};
@@ -31,6 +75,10 @@ class VMGen
   #{dst} = __v;
 }
     EOS
+  end
+
+  def gen_instruction(inst, ipreg, indent)
+    indent_stmt(inst.gen_stmt(ipreg), indent)
   end
 
   TEMPLATE = <<-EOS
@@ -62,9 +110,12 @@ int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
 
   while (true) {
 <% indent = 4 -%>
-<%= fetch_rex_stmt('rip', 'rex', indent) -%>
-<%= fetch_opcode_stmt('rip', 'opcode', indent) -%>
+<%= gen_rex_fetch('rip', 'rex', indent) -%>
+<%= gen_opcode_fetch('rip', 'opcode', indent) -%>
     switch(opcode) {
+<% instructions.each do |inst| -%>
+<%= gen_instruction(inst, 'rip', indent) -%>
+<% end -%>
       default:
         DEBUG("unsupported opcode: 0x%x\\n", opcode);
         assert(false);
@@ -81,6 +132,9 @@ int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
 
   public
   def generate()
+    instructions = [
+      Instruction0x50To0x57.new()
+    ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
   end
 end
