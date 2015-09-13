@@ -37,7 +37,6 @@ class Instruction0x50To0x57 < Instruction
 case 0x5#{i}:
 {
   DEBUG("PUSH #{regname(i)}\\n");
-  #{ipreg}++;
   break;
 }
       EOS
