@@ -45,6 +45,34 @@ case 0x5#{i}:
   end
 end
 
+class Instruction0x83 < Instruction
+  public
+  def gen_stmt(ipreg)
+    stmt = <<-EOS
+case 0x83:
+{
+  uint8_t modrm = FETCH_MODRM(#{ipreg});
+  char imm = FETCH_IMM_SB(#{ipreg});
+  uint8_t op_ext = MODRM_OP_EXT(modrm);
+  uint8_t mod = MODRM_MOD(modrm);
+  uint8_t rm = MODRM_RM(modrm);
+  uint8_t target = IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm;
+  assert(mod == MODRM_MOD_REG);
+  switch(op_ext) {
+  case 0x05: // SUB
+  {
+    DEBUG("SUB 0x%x %s\\n", imm, regnames[target]);
+    break;
+  }
+  default:
+    DEBUG("opcode 0x83: unsupported op_ext 0x%x\\n", op_ext);
+    assert(false);
+  }
+}
+    EOS
+  end
+end
+
 class Instruction0x89 < Instruction
   public
   def gen_stmt(ipreg)
@@ -122,11 +150,13 @@ class VMGen
 #define MODRM_REG(modrm) (((modrm) & 0x38) >> 3)
 #define MODRM_MOD(modrm) (((modrm) & 0xc0) >> 6)
 #define MODRM_RM(modrm) ((modrm) & 0x07)
-#define MODRM_OP_EXT(modrm) (((modrm) & 0xc0) >> 6)
+#define MODRM_OP_EXT(modrm) (((modrm) & 0x38) >> 3)
 #define MODRM_MOD_MEM_DISP0 0
 #define MODRM_MOD_MEM_DISP8 1
 #define MODRM_MOD_MEM_DISP32 2
 #define MODRM_MOD_REG 3
+
+#define FETCH_IMM_SB(ipreg) (*((int8_t*)(ipreg++)))
 
 static const char *regnames[] = {
   "RAX",
@@ -186,6 +216,7 @@ int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
   def generate()
     instructions = [
       Instruction0x50To0x57.new(),
+      Instruction0x83.new(),
       Instruction0x89.new(),
     ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
