@@ -41,8 +41,26 @@ case 0x5#{i}:
   break;
 }
       EOS
-      stmt.chomp()
-    }.join("\n")
+    }.join()
+  end
+end
+
+class Instruction0x89 < Instruction
+  public
+  def gen_stmt(ipreg)
+    stmt = <<-EOS
+case 0x89:
+{
+  uint8_t modrm = FETCH_MODRM(#{ipreg});
+  uint8_t mod = MODRM_MOD(modrm);
+  uint8_t rm = MODRM_RM(modrm);
+  uint8_t src = MODRM_REG(modrm);
+  uint8_t dst = IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm;
+  assert(mod == MODRM_MOD_REG);
+  DEBUG("MOV %s %s\\n", regnames[src], regnames[dst]);
+  break;
+}
+    EOS
   end
 end
 
@@ -94,6 +112,40 @@ class VMGen
 #define DEBUG(...) lambchop_debug(logger, __VA_ARGS__)
 
 #define IS_REX(v) (((v) & 0xf0) == 0x40)
+#define IS_REX_W(rex) ((rex) & 0x08)
+#define IS_REX_R(rex) ((rex) & 0x04)
+#define IS_REX_X(rex) ((rex) & 0x02)
+#define IS_REX_B(rex) ((rex) & 0x01)
+#define REX_REG_BIT 0x10
+
+#define FETCH_MODRM(ipreg) (*((uint8_t*)(ipreg++)))
+#define MODRM_REG(modrm) (((modrm) & 0x38) >> 3)
+#define MODRM_MOD(modrm) (((modrm) & 0xc0) >> 6)
+#define MODRM_RM(modrm) ((modrm) & 0x07)
+#define MODRM_OP_EXT(modrm) (((modrm) & 0xc0) >> 6)
+#define MODRM_MOD_MEM_DISP0 0
+#define MODRM_MOD_MEM_DISP8 1
+#define MODRM_MOD_MEM_DISP32 2
+#define MODRM_MOD_REG 3
+
+static const char *regnames[] = {
+  "RAX",
+  "RCX",
+  "RDX",
+  "RBX",
+  "RSP",
+  "RBP",
+  "RSI",
+  "RDI",
+  "R8",
+  "R9",
+  "R10",
+  "R11",
+  "R12",
+  "R13",
+  "R14",
+  "R15"
+};
 
 int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
 {
@@ -116,9 +168,9 @@ int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
 <% instructions.each do |inst| -%>
 <%= gen_instruction(inst, 'rip', indent) -%>
 <% end -%>
-      default:
-        DEBUG("unsupported opcode: 0x%x\\n", opcode);
-        assert(false);
+    default:
+      DEBUG("unsupported opcode: 0x%x\\n", opcode);
+      assert(false);
     }
   }
 
@@ -133,7 +185,8 @@ int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
   public
   def generate()
     instructions = [
-      Instruction0x50To0x57.new()
+      Instruction0x50To0x57.new(),
+      Instruction0x89.new(),
     ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
   end
