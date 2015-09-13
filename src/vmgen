@@ -47,10 +47,12 @@ class Instruction
   end
 
   def gen(body)
-    return <<-EOS
-#{@opcodes.map{|op| "case #{op}:"}.join("\n")}
+    ERB.new(<<-EOS, 0, '%-').result(binding)
+<% @opcodes.each do |op| -%>
+case <%= op %>:
+<% end -%>
 {
-#{indent_stmt(body.chomp, 2)}
+<%= indent_stmt(body.chomp, 2) %>
   break;
 }
     EOS
