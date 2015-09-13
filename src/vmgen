@@ -37,8 +37,14 @@ class Instruction
 case <%= opcode %>:
 <% end -%>
 {
+<% if @fetch_modrm -%>
+  uint8_t <%= modrm_var() %>;
+<% end -%>
 <% @operands.each_with_index do |operand, idx| -%>
   uint64_t <%= operand_var(idx) %>;
+<% end -%>
+<% if @fetch_modrm -%>
+<%= indent_stmt(gen_modrm_fetch(ipreg), 2) -%>
 <% end -%>
 <% @operands.each_with_index do |operand, idx| -%>
 <%= indent_stmt(gen_operand(operand, idx), 2) -%>
@@ -64,6 +70,7 @@ case <%= opcode %>:
     raise("#{self.class}: opcodes not given") unless @opcodes
     @operands = self.class.instance_variable_get('@spec_operands')
     raise("#{self.class}: operands not given") unless @operands
+    @fetch_modrm = !(@operands & [:modrm_reg, :modrm_modrm]).empty?
   end
 
   def opcode_var()
@@ -72,6 +79,10 @@ case <%= opcode %>:
 
   def operand_var(idx)
     "op#{idx}"
+  end
+
+  def modrm_var()
+    'modrm'
   end
 
   private
@@ -126,8 +137,10 @@ case <%= opcode %>:
     EOS
   end
 
-  def fetch_modrm(ipreg, dst, indent)
-    indent_stmt("#{dst} = FETCH_MODRM(#{ipreg});", indent)
+  def gen_modrm_fetch(ipreg)
+    return <<-EOS
+#{modrm_var()} = FETCH_MODRM(#{ipreg});
+    EOS
   end
 end
 
@@ -152,7 +165,6 @@ class Instruction0x83 < Instruction
   protected
   def gen_body(ipreg)
     return <<-EOS
-uint8_t modrm = FETCH_MODRM(#{ipreg});
 int8_t imm = FETCH_IMM_S8(#{ipreg});
 uint8_t op_ext = MODRM_OP_EXT(modrm);
 uint8_t mod = MODRM_MOD(modrm);
@@ -181,7 +193,6 @@ class Instruction0x89 < Instruction
   protected
   def gen_body(ipreg)
     return <<-EOS
-uint8_t modrm = FETCH_MODRM(#{ipreg});
 uint8_t mod = MODRM_MOD(modrm);
 uint8_t rm = MODRM_RM(modrm);
 uint8_t src = MODRM_REG(modrm);
