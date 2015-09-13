@@ -19,6 +19,17 @@ def fetch_rex_stmt(ipreg, dst, indent)
   EOS
 end
 
+def fetch_opcode_stmt(ipreg, dst, indent)
+  indent_stmt(<<-EOS, indent)
+{
+  uint8_t *__p = (uint8_t*)#{ipreg};
+  uint8_t __v = *__p;
+  #{ipreg}++;
+  #{dst} = __v;
+}
+  EOS
+end
+
 template = ERB.new(<<-EOS, 0, '%-')
 #include "lambchop.h"
 
@@ -27,6 +38,10 @@ template = ERB.new(<<-EOS, 0, '%-')
 
 #include <assert.h>
 
+#define ERR(...) lambchop_err(logger, __VA_ARGS__)
+#define INFO(...) lambchop_info(logger, __VA_ARGS__)
+#define DEBUG(...) lambchop_debug(logger, __VA_ARGS__)
+
 #define IS_REX(v) (((v) & 0xf0) == 0x40)
 
 int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
@@ -34,7 +49,7 @@ int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
   uint64_t rip;
   uint64_t rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi;
   uint64_t r8, r9, r10, r11, r12, r13, r14, r15;
-  uint8_t rex, modrm;
+  uint8_t opcode, rex, modrm;
   void *stack = malloc(stacksize);
 
   assert(stack); // TODO: return error
@@ -45,6 +60,12 @@ int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
   while (true) {
 <% indent = 4 -%>
 <%= fetch_rex_stmt('rip', 'rex', indent) -%>
+<%= fetch_opcode_stmt('rip', 'opcode', indent) -%>
+    switch(opcode) {
+      default:
+        DEBUG("unsupported opcode: 0x%x\\n", opcode);
+        assert(false);
+    }
   }
 
   if (stack) {
