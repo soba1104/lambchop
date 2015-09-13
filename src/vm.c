@@ -1,5 +1,6 @@
 #include "lambchop.h"
 
+#include <stdlib.h>
 #include <assert.h>
 
 #define ERR(...) lambchop_err(logger, __VA_ARGS__)
@@ -116,7 +117,7 @@ static inline char fetch_imm_sb(uint64_t *ipp) {
   return imm;
 }
 
-static int vm_main(uint8_t *p, lambchop_logger *logger) {
+static int __vm_main(uint8_t *p, lambchop_logger *logger) {
   uint64_t rip = (uint64_t)p;
 
   while (true) {
@@ -153,5 +154,7 @@ static int vm_main(uint8_t *p, lambchop_logger *logger) {
 int lambchop_vm_run(void *mainfunc, lambchop_logger *logger) {
   // TODO 引数を扱えるようにする。
   /*return ((int(*)(void))mainfunc)();*/
-  return vm_main(mainfunc, logger);
+  int res = vm_main(mainfunc, 1024 * 1024, logger);
+  DEBUG("res = %d\n", res);
+  return __vm_main(mainfunc, logger);
 }
