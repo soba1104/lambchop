@@ -48,10 +48,13 @@ class Instruction
 
   def gen(body)
     ERB.new(<<-EOS, 0, '%-').result(binding)
-<% @opcodes.each do |op| -%>
-case <%= op %>:
+<% @opcodes.each do |opcode| -%>
+case <%= opcode %>:
 <% end -%>
 {
+<% @operands.each do |operand| -%>
+<%= indent_stmt(gen_operand(operand), 2) -%>
+<% end -%>
 <%= indent_stmt(body.chomp, 2) %>
   break;
 }
@@ -59,6 +62,10 @@ case <%= op %>:
   end
 
   private
+  def gen_operand(operand)
+    ""
+  end
+
   def fetch_modrm(ipreg, dst, indent)
     indent_stmt("#{dst} = FETCH_MODRM(#{ipreg});", indent)
   end
