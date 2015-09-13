@@ -2,12 +2,15 @@
 
 require 'erb'
 
-def indent_stmt(stmt, indent)
-  stmt.lines.map{|l| (' ' * indent) + l}.join()
-end
+class VMGen
+  private
 
-def fetch_rex_stmt(ipreg, dst, indent)
-  indent_stmt(<<-EOS, indent)
+  def indent_stmt(stmt, indent)
+    stmt.lines.map{|l| (' ' * indent) + l}.join()
+  end
+
+  def fetch_rex_stmt(ipreg, dst, indent)
+    indent_stmt(<<-EOS, indent)
 {
   uint8_t *__p = (uint8_t*)#{ipreg};
   uint8_t __v = *__p;
@@ -16,21 +19,21 @@ def fetch_rex_stmt(ipreg, dst, indent)
     #{dst} = __v;
   }
 }
-  EOS
-end
+    EOS
+  end
 
-def fetch_opcode_stmt(ipreg, dst, indent)
-  indent_stmt(<<-EOS, indent)
+  def fetch_opcode_stmt(ipreg, dst, indent)
+    indent_stmt(<<-EOS, indent)
 {
   uint8_t *__p = (uint8_t*)#{ipreg};
   uint8_t __v = *__p;
   #{ipreg}++;
   #{dst} = __v;
 }
-  EOS
-end
+    EOS
+  end
 
-template = ERB.new(<<-EOS, 0, '%-')
+  TEMPLATE = <<-EOS
 #include "lambchop.h"
 
 #include <stdint.h>
@@ -74,5 +77,12 @@ int vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
 
   return 0;
 }
-EOS
-puts template.result(binding)
+  EOS
+
+  public
+  def generate()
+    ERB.new(TEMPLATE, 0, '%-').result(binding)
+  end
+end
+
+puts VMGen.new.generate()
