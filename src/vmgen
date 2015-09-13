@@ -94,14 +94,35 @@ case <%= opcode %>:
     case operand
     when :opcode_reg
       gen_operand_opcode_reg(idx)
+    when :modrm_reg
+      gen_operand_modrm_reg(idx)
+    when :modrm_modrm
+      gen_operand_modrm_modrm(idx)
+    when :imm_s8
+      gen_operand_imm_s8(idx)
     else
-      ""
+      raise("#{self.class}: unknown operand #{operand}")
     end
   end
 
   def gen_operand_opcode_reg(idx)
     return <<-EOS
 #{operand_var(idx)} = (uint64_t)regs[#{opcode_var()} & 0x07];
+    EOS
+  end
+
+  def gen_operand_modrm_reg(idx)
+    return <<-EOS
+    EOS
+  end
+
+  def gen_operand_modrm_modrm(idx)
+    return <<-EOS
+    EOS
+  end
+
+  def gen_operand_imm_s8(idx)
+    return <<-EOS
     EOS
   end
 
