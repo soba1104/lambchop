@@ -37,8 +37,11 @@ class Instruction
 case <%= opcode %>:
 <% end -%>
 {
-<% @operands.each do |operand| -%>
-<%= indent_stmt(gen_operand(operand), 2) -%>
+<% @operands.each_with_index do |operand, idx| -%>
+  uint64_t <%= operand_name(idx) %>;
+<% end -%>
+<% @operands.each_with_index do |operand, idx| -%>
+<%= indent_stmt(gen_operand(operand, idx), 2) -%>
 <% end -%>
 <%= indent_stmt(gen_body(ipreg), 2) -%>
   break;
@@ -62,12 +65,16 @@ case <%= opcode %>:
     raise("#{self.class}: operands not given") unless @operands
   end
 
+  def operand_name(idx)
+    "op#{idx}"
+  end
+
   private
   def gen_body(ipreg)
     raise("#{self.class}: gen_body not implemented")
   end
 
-  def gen_operand(operand)
+  def gen_operand(operand, idx)
     ""
   end
 
