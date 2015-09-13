@@ -21,7 +21,14 @@ REGNAMES = [
   'r15',
 ]
 
+module CodeGenerator
+  def indent_stmt(stmt, indent)
+    stmt.lines.map{|l| (' ' * indent) + l}.join()
+  end
+end
+
 class Instruction
+  include CodeGenerator
 end
 
 class Instruction0x50To0x57 < Instruction
@@ -91,11 +98,9 @@ case 0x89:
 end
 
 class VMGen
-  private
+  include CodeGenerator
 
-  def indent_stmt(stmt, indent)
-    stmt.lines.map{|l| (' ' * indent) + l}.join()
-  end
+  private
 
   def gen_rex_fetch(ipreg, dst, indent)
     indent_stmt(<<-EOS, indent)
