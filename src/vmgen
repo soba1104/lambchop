@@ -43,6 +43,7 @@ case <%= opcode %>:
 <% @operands.each_with_index do |operand, idx| -%>
 <%= indent_stmt(gen_operand(operand, idx), 2) -%>
 <% end -%>
+<%= indent_stmt(gen_debug(), 2) -%>
 <%= indent_stmt(gen_body(ipreg), 2) -%>
   break;
 }
@@ -74,6 +75,17 @@ case <%= opcode %>:
   end
 
   private
+  def gen_debug()
+    n = @operands.size
+    vars = []
+    @operands.each_with_index do |operand, idx|
+      vars.push(operand_var(idx))
+    end
+    return <<-EOS
+//DEBUG("#{@opcodes}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.join(', ')});
+    EOS
+  end
+
   def gen_body(ipreg)
     raise("#{self.class}: gen_body not implemented")
   end
