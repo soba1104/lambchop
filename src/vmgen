@@ -61,28 +61,24 @@ end
 class Instruction0x83 < Instruction
   public
   def gen_stmt(ipreg)
-    stmt = <<-EOS
-case 0x83:
+    gen(['0x83'], <<-EOS)
+uint8_t modrm = FETCH_MODRM(#{ipreg});
+int8_t imm = FETCH_IMM_S8(#{ipreg});
+uint8_t op_ext = MODRM_OP_EXT(modrm);
+uint8_t mod = MODRM_MOD(modrm);
+uint8_t rm = MODRM_RM(modrm);
+uint8_t target = IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm;
+assert(mod == MODRM_MOD_REG);
+switch(op_ext) {
+case 0x05: // SUB
 {
-  uint8_t modrm = FETCH_MODRM(#{ipreg});
-  int8_t imm = FETCH_IMM_S8(#{ipreg});
-  uint8_t op_ext = MODRM_OP_EXT(modrm);
-  uint8_t mod = MODRM_MOD(modrm);
-  uint8_t rm = MODRM_RM(modrm);
-  uint8_t target = IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm;
-  assert(mod == MODRM_MOD_REG);
-  switch(op_ext) {
-  case 0x05: // SUB
-  {
-    DEBUG("sub 0x%x %s\\n", imm, regnames[target]);
-    *regs[target] -= imm;
-    break;
-  }
-  default:
-    DEBUG("opcode 0x83: unsupported op_ext 0x%x\\n", op_ext);
-    assert(false);
-  }
+  DEBUG("sub 0x%x %s\\n", imm, regnames[target]);
+  *regs[target] -= imm;
   break;
+}
+default:
+  DEBUG("opcode 0x83: unsupported op_ext 0x%x\\n", op_ext);
+  assert(false);
 }
     EOS
   end
