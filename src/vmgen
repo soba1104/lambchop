@@ -58,13 +58,13 @@ case <%= opcode %>:
   uint8_t <%= modrm_var() %>;
 <% end -%>
 <% @operands.each_with_index do |operand, idx| -%>
-  uint64_t <%= operand_var(idx) %>;
+  <%= gen_operand_declare(operand, idx) %>;
 <% end -%>
 <% if @fetch_modrm -%>
 <%= indent_stmt(gen_modrm_fetch(ipreg), 2) -%>
 <% end -%>
 <% @operands.each_with_index do |operand, idx| -%>
-<%= indent_stmt(gen_operand(operand, idx, ipreg), 2) -%>
+<%= indent_stmt(gen_operand_init(operand, idx, ipreg), 2) -%>
 <% end -%>
 <%= indent_stmt(gen_debug(), 2) -%>
 <%= indent_stmt(gen_body(ipreg), 2) -%>
@@ -118,7 +118,20 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
     @body
   end
 
-  def gen_operand(operand, idx, ipreg)
+  def gen_operand_declare(operand, idx)
+    case operand
+    when :opcode_reg, :modrm_reg, :modrm_modrm
+      "uint64_t *#{operand_var(idx)}"
+    when :modrm_extop
+      "uint8_t #{operand_var(idx)}"
+    when :imm_s8
+      "int8_t #{operand_var(idx)}"
+    else
+      raise("#{self.class}: unknown operand #{operand}")
+    end
+  end
+
+  def gen_operand_init(operand, idx, ipreg)
     case operand
     when :opcode_reg
       gen_operand_opcode_reg(idx)
@@ -137,13 +150,13 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
 
   def gen_operand_opcode_reg(idx)
     return <<-EOS
-#{operand_var(idx)} = (uint64_t)regs[#{opcode_var()} & 0x07];
+#{operand_var(idx)} = regs[#{opcode_var()} & 0x07];
     EOS
   end
 
   def gen_operand_modrm_reg(idx)
     return <<-EOS
-#{operand_var(idx)} = (uint64_t)regs[MODRM_REG(#{modrm_var()})];
+#{operand_var(idx)} = regs[MODRM_REG(#{modrm_var()})];
     EOS
   end
 
@@ -154,7 +167,7 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
   uint8_t __rm = MODRM_RM(#{modrm_var()});
   uint8_t __regid = IS_REX_R(#{rex_var()}) ? (REX_REG_BIT | __rm) : __rm;
   assert(__mod == MODRM_MOD_REG);
-  #{operand_var(idx)} = (uint64_t)regs[__regid];
+  #{operand_var(idx)} = regs[__regid];
 }
     EOS
   end
@@ -183,7 +196,7 @@ class Instruction0x50To0x57 < Instruction
   spec_opcodes (0..7).map{|i| "0x5#{i}"}
   spec_operands [:opcode_reg]
   spec_body <<-EOS
-*((uint64_t*)rsp) = *((uint64_t*)#{operand_var(0)});
+*((uint64_t*)rsp) = *#{operand_var(0)};
 rsp -= sizeof(uint64_t);
   EOS
 end
@@ -196,7 +209,7 @@ class Instruction0x83 < Instruction
 switch(#{operand_var(0)}) {
 case 0x05: // SUB
 {
-  *((uint64_t*)#{operand_var(1)}) -= (int8_t)#{operand_var(2)};
+  *#{operand_var(1)} -= #{operand_var(2)};
   break;
 }
 default:
@@ -211,7 +224,7 @@ class Instruction0x89 < Instruction
   spec_opcodes ['0x89']
   spec_operands [:modrm_reg, :modrm_modrm]
   spec_body <<-EOS
-*((uint64_t*)#{operand_var(1)}) = *((uint64_t*)#{operand_var(0)});
+*#{operand_var(1)} = *#{operand_var(0)};
   EOS
 end
 
