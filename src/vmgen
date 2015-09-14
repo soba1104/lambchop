@@ -82,11 +82,11 @@ case <%= opcode %>:
     @spec_mnemonic = mnemonic
   end
 
-  def self.spec_opcodes(opcodes)
+  def self.spec_opcodes(*opcodes)
     @spec_opcodes = opcodes
   end
 
-  def self.spec_operands(operands)
+  def self.spec_operands(*operands)
     @spec_operands = operands
   end
 
@@ -191,8 +191,8 @@ end
 
 class Instruction0x50To0x57 < Instruction
   spec_mnemonic 'push'
-  spec_opcodes (0..7).map{|i| "0x5#{i}"}
-  spec_operands [:opcode_reg]
+  spec_opcodes *(0..7).map{|i| "0x5#{i}"}
+  spec_operands :opcode_reg
   spec_body <<-EOS
 *((uint64_t*)rsp) = *#{operand_var(0)};
 rsp -= sizeof(uint64_t);
@@ -201,8 +201,8 @@ end
 
 class Instruction0x83 < Instruction
   spec_mnemonic 'add/or/adc/sbb/and/sub/xor/cmp'
-  spec_opcodes ['0x83']
-  spec_operands [:modrm_extop, :modrm_modrm, :imm_s8]
+  spec_opcodes '0x83'
+  spec_operands :modrm_extop, :modrm_modrm, :imm_s8
   spec_body <<-EOS
 switch(#{operand_var(0)}) {
 case 0x05: // SUB
@@ -219,8 +219,8 @@ end
 
 class Instruction0x89 < Instruction
   spec_mnemonic 'mov'
-  spec_opcodes ['0x89']
-  spec_operands [:modrm_reg, :modrm_modrm]
+  spec_opcodes '0x89'
+  spec_operands :modrm_reg, :modrm_modrm
   spec_body <<-EOS
 *#{operand_var(1)} = *#{operand_var(0)};
   EOS
@@ -228,8 +228,8 @@ end
 
 class Instruction0x8D < Instruction
   spec_mnemonic 'lea'
-  spec_opcodes ['0x8d']
-  spec_operands [:modrm_modrm, :modrm_reg]
+  spec_opcodes '0x8d'
+  spec_operands :modrm_modrm, :modrm_reg
   spec_body <<-EOS
 *#{operand_var(1)} = (uint64_t)(#{operand_var(0)});
   EOS
