@@ -38,6 +38,10 @@ module CodeGenerator
     'rex'
   end
 
+  def regs_var()
+    'regs'
+  end
+
   def modrm_var()
     'modrm'
   end
@@ -138,7 +142,7 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
     when :modrm_reg
       gen_operand_modrm_reg(idx)
     when :modrm_modrm
-      gen_operand_modrm_modrm(idx)
+      gen_operand_modrm_modrm(idx, ipreg)
     when :modrm_extop
       gen_operand_modrm_extop(idx)
     when :imm_s8
@@ -160,15 +164,9 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
     EOS
   end
 
-  def gen_operand_modrm_modrm(idx)
+  def gen_operand_modrm_modrm(idx, ipreg)
     return <<-EOS
-{
-  uint8_t __mod = MODRM_MOD(#{modrm_var()});
-  uint8_t __rm = MODRM_RM(#{modrm_var()});
-  uint8_t __regid = IS_REX_R(#{rex_var()}) ? (REX_REG_BIT | __rm) : __rm;
-  assert(__mod == MODRM_MOD_REG);
-  #{operand_var(idx)} = regs[__regid];
-}
+#{operand_var(idx)} = FETCH_OPERAND_MODRM_MODRM(#{modrm_var()}, #{rex_var()}, #{regs_var()}, #{ipreg});
     EOS
   end
 
@@ -180,7 +178,7 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
 
   def gen_operand_imm_s8(idx, ipreg)
     return <<-EOS
-#{operand_var(idx)} = FETCH_IMM_S8(#{ipreg});
+#{operand_var(idx)} = FETCH_OPERAND_IMM_S8(#{ipreg});
     EOS
   end
 
@@ -225,6 +223,15 @@ class Instruction0x89 < Instruction
   spec_operands [:modrm_reg, :modrm_modrm]
   spec_body <<-EOS
 *#{operand_var(1)} = *#{operand_var(0)};
+  EOS
+end
+
+class Instruction0x8d < Instruction
+  spec_mnemonic 'lea'
+  spec_opcodes ['0x8d']
+  spec_operands [:modrm_modrm, :modrm_reg]
+  spec_body <<-EOS
+*#{operand_var(1)} = (uint64_t)(#{operand_var(0)});
   EOS
 end
 
@@ -306,8 +313,46 @@ class VMGen
 #define MODRM_MOD_MEM_DISP8 1
 #define MODRM_MOD_MEM_DISP32 2
 #define MODRM_MOD_REG 3
+#define MODRM_RM_SIB 4
+#define MODRM_RM_IP 5
 
-#define FETCH_IMM_S8(ipreg) (*((int8_t*)(ipreg++)))
+uint64_t *fetch_operand_modrm_modrm(uint8_t modrm, uint8_t rex, uint64_t **regs, uint64_t *ipp) {
+  uint8_t mod = MODRM_MOD(modrm);
+  uint8_t rm = MODRM_RM(modrm);
+  uint64_t ip = *ipp, result;
+  int64_t disp = 0;
+
+  if (mod == MODRM_MOD_REG) {
+    return regs[IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm];
+  }
+  if (rm == MODRM_RM_SIB) {
+    assert(false);
+  } else if (rm == MODRM_RM_IP) {
+    if (mod == MODRM_MOD_MEM_DISP8) {
+      disp = *((int8_t*)(ip));
+      ip += 1;
+    } else {
+      disp = *((int32_t*)(ip));
+      ip += 4;
+    }
+    result = ip + disp;
+  } else {
+    if (mod == MODRM_MOD_MEM_DISP8) {
+      disp = *((int8_t*)(ip));
+      ip += 1;
+    } else if (mod == MODRM_MOD_MEM_DISP32) {
+      disp = *((int32_t*)(ip));
+      ip += 4;
+    }
+    result = *regs[IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm] + disp;
+  }
+  *ipp = ip;
+  return (uint64_t*)result;
+}
+
+#define FETCH_OPERAND_MODRM_MODRM(modrm, rex, regs, ipreg) \
+  fetch_operand_modrm_modrm((modrm), (rex), (regs), &(ipreg))
+#define FETCH_OPERAND_IMM_S8(ipreg) (*((int8_t*)(ipreg++)))
 
 static const char *regnames[] = {
   "rax",
@@ -328,8 +373,7 @@ static const char *regnames[] = {
   "r15"
 };
 
-int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
-{
+int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
   uint64_t rip, *regs[16];
   uint8_t opcode, rex, modrm;
   void *stack = malloc(stacksize);
@@ -374,6 +418,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger)
       Instruction0x50To0x57.new(),
       Instruction0x83.new(),
       Instruction0x89.new(),
+      Instruction0x8d.new(),
     ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
   end
