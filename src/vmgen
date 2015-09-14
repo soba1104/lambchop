@@ -226,7 +226,7 @@ class Instruction0x89 < Instruction
   EOS
 end
 
-class Instruction0x8d < Instruction
+class Instruction0x8D < Instruction
   spec_mnemonic 'lea'
   spec_opcodes ['0x8d']
   spec_operands [:modrm_modrm, :modrm_reg]
@@ -418,7 +418,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
       Instruction0x50To0x57.new(),
       Instruction0x83.new(),
       Instruction0x89.new(),
-      Instruction0x8d.new(),
+      Instruction0x8D.new(),
     ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
   end
