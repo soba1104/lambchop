@@ -240,30 +240,40 @@ end
 class Instruction0x89 < Instruction
   spec_mnemonic 'mov'
   spec_opcodes '0x89'
-  spec_operands :modrm_reg, :modrm_modrm
+  spec_operands :modrm_modrm, :modrm_reg
   spec_body <<-EOS
 assert(osize == 8);
-*#{operand_var(1)} = *#{operand_var(0)};
+*#{operand_var(0)} = *#{operand_var(1)};
   EOS
 end
 
 class Instruction0x8D < Instruction
   spec_mnemonic 'lea'
   spec_opcodes '0x8d'
-  spec_operands :modrm_modrm_mem_only, :modrm_reg
+  spec_operands :modrm_reg, :modrm_modrm_mem_only
   spec_body <<-EOS
 assert(osize == 8);
-*#{operand_var(1)} = (uint64_t)(#{operand_var(0)});
+*#{operand_var(0)} = (uint64_t)(#{operand_var(1)});
   EOS
 end
 
-class Instruction0xBE < Instruction
+class Instruction0xB8To0xBF < Instruction
   spec_mnemonic 'mov'
-  spec_opcodes '0xBE'
-  spec_operands :imm_s32, :opcode_reg
+  spec_opcodes *(0x08..0x0f).map{|i| "0xB#{i.to_s(16)}"}
+  spec_operands :opcode_reg, :imm_s32
   spec_body <<-EOS
 assert(osize == 4);
-*#{operand_var(1)} = #{operand_var(0)};
+*#{operand_var(0)} = #{operand_var(1)};
+  EOS
+end
+
+class Instruction0xC7 < Instruction
+  spec_mnemonic 'mov'
+  spec_opcodes '0xc7'
+  spec_operands :modrm_modrm, :imm_s32
+  spec_body <<-EOS
+assert(osize == 4);
+*#{operand_var(0)} = #{operand_var(1)};
   EOS
 end
 
@@ -363,14 +373,19 @@ uint64_t *fetch_operand_modrm_modrm(uint8_t modrm, uint8_t rex, uint64_t **regs,
   if (rm == MODRM_RM_SIB) {
     assert(false);
   } else if (rm == MODRM_RM_IP) {
-    if (mod == MODRM_MOD_MEM_DISP8) {
+    if (mod == MODRM_MOD_MEM_DISP0) {
+      disp = *((int32_t*)(ip));
+      ip += 4;
+      result = ip + disp;
+    } else if (mod == MODRM_MOD_MEM_DISP8) {
       disp = *((int8_t*)(ip));
       ip += 1;
+      result = *regs[IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm] + disp;
     } else {
       disp = *((int32_t*)(ip));
       ip += 4;
+      result = *regs[IS_REX_R(rex) ? (REX_REG_BIT | rm) : rm] + disp;
     }
-    result = ip + disp;
   } else {
     if (mod == MODRM_MOD_MEM_DISP8) {
       disp = *((int8_t*)(ip));
@@ -465,7 +480,8 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
       Instruction0x83.new(),
       Instruction0x89.new(),
       Instruction0x8D.new(),
-      Instruction0xBE.new(),
+      Instruction0xB8To0xBF.new(),
+      Instruction0xC7.new(),
     ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
   end
