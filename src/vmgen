@@ -124,7 +124,7 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
 
   def gen_operand_declare(operand, idx)
     case operand
-    when :opcode_reg, :modrm_reg, :modrm_modrm
+    when :opcode_reg, :modrm_reg, :modrm_modrm, :modrm_modrm_mem_only
       "uint64_t *#{operand_var(idx)}"
     when :modrm_extop
       "uint8_t #{operand_var(idx)}"
@@ -141,8 +141,8 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
       gen_operand_opcode_reg(idx)
     when :modrm_reg
       gen_operand_modrm_reg(idx)
-    when :modrm_modrm
-      gen_operand_modrm_modrm(idx, ipreg)
+    when :modrm_modrm, :modrm_modrm_mem_only
+      gen_operand_modrm_modrm(operand, idx, ipreg)
     when :modrm_extop
       gen_operand_modrm_extop(idx)
     when :imm_s8
@@ -164,10 +164,15 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
     EOS
   end
 
-  def gen_operand_modrm_modrm(idx, ipreg)
-    return <<-EOS
+  def gen_operand_modrm_modrm(operand, idx, ipreg)
+    prefix = ''
+    if operand == :modrm_modrm_mem_only
+      prefix = "assert(MODRM_MOD(#{modrm_var()}) != MODRM_MOD_REG);\n"
+    end
+    body = <<-EOS
 #{operand_var(idx)} = FETCH_OPERAND_MODRM_MODRM(#{modrm_var()}, #{rex_var()}, #{regs_var()}, #{ipreg});
     EOS
+    prefix + body
   end
 
   def gen_operand_modrm_extop(idx)
@@ -205,6 +210,7 @@ class Instruction0x83 < Instruction
   spec_opcodes '0x83'
   spec_operands :modrm_extop, :modrm_modrm, :imm_s8
   spec_body <<-EOS
+assert(osize == 8);
 switch(#{operand_var(0)}) {
 case 0x05: // SUB
 {
@@ -223,6 +229,7 @@ class Instruction0x89 < Instruction
   spec_opcodes '0x89'
   spec_operands :modrm_reg, :modrm_modrm
   spec_body <<-EOS
+assert(osize == 8);
 *#{operand_var(1)} = *#{operand_var(0)};
   EOS
 end
@@ -230,8 +237,9 @@ end
 class Instruction0x8D < Instruction
   spec_mnemonic 'lea'
   spec_opcodes '0x8d'
-  spec_operands :modrm_modrm, :modrm_reg
+  spec_operands :modrm_modrm_mem_only, :modrm_reg
   spec_body <<-EOS
+assert(osize == 8);
 *#{operand_var(1)} = (uint64_t)(#{operand_var(0)});
   EOS
 end
