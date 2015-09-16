@@ -194,8 +194,9 @@ class Instruction0x50To0x57 < Instruction
   spec_opcodes *(0..7).map{|i| "0x5#{i}"}
   spec_operands :opcode_reg
   spec_body <<-EOS
-*((uint64_t*)rsp) = *#{operand_var(0)};
-rsp -= sizeof(uint64_t);
+assert(osize == 8);
+rsp -= 8;
+*((uint64_t*)rsp) = (*#{operand_var(0)});
   EOS
 end
 
@@ -316,6 +317,9 @@ class VMGen
 #define MODRM_RM_SIB 4
 #define MODRM_RM_IP 5
 
+#define OPERAND_SIZE_PREFIX 0x66
+#define ADDRESS_SIZE_PREFIX 0x67
+
 uint64_t *fetch_operand_modrm_modrm(uint8_t modrm, uint8_t rex, uint64_t **regs, uint64_t *ipp) {
   uint8_t mod = MODRM_MOD(modrm);
   uint8_t rm = MODRM_RM(modrm);
@@ -391,9 +395,17 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
   rsp = ((uint64_t)stack) + (stacksize - sizeof(uint64_t));
 
   while (true) {
+    uint64_t osize = 8, asize = 8;
+    uint64_t omask = 0xffffffff, amask = 0xffffffffffffffff;
+    rex = 0;
 <% indent = 4 -%>
 <%= gen_rex_fetch('rip', 'rex', indent) -%>
 <%= gen_opcode_fetch('rip', 'opcode', indent) -%>
+    if (IS_REX_W(rex)) {
+      omask = 0xffffffffffffffff;
+    }
+    assert(opcode != OPERAND_SIZE_PREFIX);
+    assert(opcode != ADDRESS_SIZE_PREFIX);
     switch(opcode) {
 <% instructions.each do |inst| -%>
 <%= gen_instruction(inst, 'rip', indent) -%>
