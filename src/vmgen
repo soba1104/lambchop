@@ -234,7 +234,18 @@ class Instruction0x50To0x57 < Instruction
   spec_body <<-EOS
 assert(odefault);
 rsp -= 8;
-*((uint64_t*)rsp) = (*#{operand_var(0)});
+*((int64_t*)rsp) = *((int64_t*)#{operand_var(0)});
+  EOS
+end
+
+class Instruction0x68 < Instruction
+  spec_mnemonic 'push'
+  spec_opcodes '0x68'
+  spec_operands :imm_s32
+  spec_body <<-EOS
+assert(odefault);
+rsp -= 8;
+*((int64_t*)rsp) = #{operand_var(0)};
   EOS
 end
 
@@ -543,6 +554,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
   def generate()
     instructions = [
       Instruction0x50To0x57.new(),
+      Instruction0x68.new(),
       Instruction0x83.new(),
       Instruction0x89.new(),
       Instruction0x8D.new(),
