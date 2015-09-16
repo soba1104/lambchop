@@ -126,7 +126,7 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
     case operand
     when :opcode_reg, :modrm_reg, :modrm_modrm, :modrm_modrm_mem_only
       "uint64_t *#{operand_var(idx)}"
-    when :modrm_extop
+    when :modrm_extop, :imm_u8
       "uint8_t #{operand_var(idx)}"
     when :imm_s8
       "int8_t #{operand_var(idx)}"
@@ -151,6 +151,8 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
       gen_operand_imm_s8(idx, ipreg)
     when :imm_s32
       gen_operand_imm_s32(idx, ipreg)
+    when :imm_u8
+      gen_operand_imm_u8(idx, ipreg)
     else
       raise("#{self.class}: unknown operand #{operand}")
     end
@@ -197,6 +199,12 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
   #{operand_var(idx)} = *((int32_t*)(#{ipreg}));
   #{ipreg} += 4;
 }
+    EOS
+  end
+
+  def gen_operand_imm_u8(idx, ipreg)
+    return <<-EOS
+#{operand_var(idx)} = FETCH_OPERAND_IMM_U8(#{ipreg});
     EOS
   end
 
@@ -254,6 +262,16 @@ class Instruction0x8D < Instruction
   spec_body <<-EOS
 assert(osize == 8);
 *#{operand_var(0)} = (uint64_t)(#{operand_var(1)});
+  EOS
+end
+
+class Instruction0xB0 < Instruction
+  spec_mnemonic 'mov'
+  spec_opcodes '0xb0'
+  spec_operands :opcode_reg, :imm_u8
+  spec_body <<-EOS
+assert(odefault);
+*((uint8_t*)#{operand_var(0)}) = #{operand_var(1)};
   EOS
 end
 
@@ -403,6 +421,7 @@ uint64_t *fetch_operand_modrm_modrm(uint8_t modrm, uint8_t rex, uint64_t **regs,
 #define FETCH_OPERAND_MODRM_MODRM(modrm, rex, regs, ipreg) \
   fetch_operand_modrm_modrm((modrm), (rex), (regs), &(ipreg))
 #define FETCH_OPERAND_IMM_S8(ipreg) (*((int8_t*)(ipreg++)))
+#define FETCH_OPERAND_IMM_U8(ipreg) (*((uint8_t*)(ipreg++)))
 
 static const char *regnames[] = {
   "rax",
@@ -480,6 +499,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
       Instruction0x83.new(),
       Instruction0x89.new(),
       Instruction0x8D.new(),
+      Instruction0xB0.new(),
       Instruction0xB8To0xBF.new(),
       Instruction0xC7.new(),
     ]
