@@ -130,6 +130,8 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
       "uint8_t #{operand_var(idx)}"
     when :imm_s8
       "int8_t #{operand_var(idx)}"
+    when :imm_s32
+      "int32_t #{operand_var(idx)}"
     else
       raise("#{self.class}: unknown operand #{operand}")
     end
@@ -147,6 +149,8 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
       gen_operand_modrm_extop(idx)
     when :imm_s8
       gen_operand_imm_s8(idx, ipreg)
+    when :imm_s32
+      gen_operand_imm_s32(idx, ipreg)
     else
       raise("#{self.class}: unknown operand #{operand}")
     end
@@ -184,6 +188,15 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
   def gen_operand_imm_s8(idx, ipreg)
     return <<-EOS
 #{operand_var(idx)} = FETCH_OPERAND_IMM_S8(#{ipreg});
+    EOS
+  end
+
+  def gen_operand_imm_s32(idx, ipreg)
+    return <<-EOS
+{
+  #{operand_var(idx)} = *((int32_t*)(#{ipreg}));
+  #{ipreg} += 4;
+}
     EOS
   end
 
@@ -241,6 +254,16 @@ class Instruction0x8D < Instruction
   spec_body <<-EOS
 assert(osize == 8);
 *#{operand_var(1)} = (uint64_t)(#{operand_var(0)});
+  EOS
+end
+
+class Instruction0xBE < Instruction
+  spec_mnemonic 'mov'
+  spec_opcodes '0xBE'
+  spec_operands :imm_s32, :opcode_reg
+  spec_body <<-EOS
+assert(osize == 4);
+*#{operand_var(1)} = #{operand_var(0)};
   EOS
 end
 
@@ -403,13 +426,14 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
   rsp = ((uint64_t)stack) + (stacksize - sizeof(uint64_t));
 
   while (true) {
-    uint64_t osize = 8, asize = 8;
+    uint64_t osize = 4, asize = 8;
     uint64_t omask = 0xffffffff, amask = 0xffffffffffffffff;
     rex = 0;
 <% indent = 4 -%>
 <%= gen_rex_fetch('rip', 'rex', indent) -%>
 <%= gen_opcode_fetch('rip', 'opcode', indent) -%>
     if (IS_REX_W(rex)) {
+      osize = 8;
       omask = 0xffffffffffffffff;
     }
     assert(opcode != OPERAND_SIZE_PREFIX);
@@ -439,6 +463,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
       Instruction0x83.new(),
       Instruction0x89.new(),
       Instruction0x8D.new(),
+      Instruction0xBE.new(),
     ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
   end
