@@ -212,7 +212,7 @@ class Instruction0x50To0x57 < Instruction
   spec_opcodes *(0..7).map{|i| "0x5#{i}"}
   spec_operands :opcode_reg
   spec_body <<-EOS
-assert(osize == 8);
+assert(odefault);
 rsp -= 8;
 *((uint64_t*)rsp) = (*#{operand_var(0)});
   EOS
@@ -426,6 +426,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
   rsp = ((uint64_t)stack) + (stacksize - sizeof(uint64_t));
 
   while (true) {
+    uint64_t odefault = true, adafault = true;
     uint64_t osize = 4, asize = 8;
     uint64_t omask = 0xffffffff, amask = 0xffffffffffffffff;
     rex = 0;
@@ -433,6 +434,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
 <%= gen_rex_fetch('rip', 'rex', indent) -%>
 <%= gen_opcode_fetch('rip', 'opcode', indent) -%>
     if (IS_REX_W(rex)) {
+      odefault = false;
       osize = 8;
       omask = 0xffffffffffffffff;
     }
