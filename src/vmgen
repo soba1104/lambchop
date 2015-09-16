@@ -45,6 +45,10 @@ module CodeGenerator
   def modrm_var()
     'modrm'
   end
+
+  def ipreg()
+    'rip'
+  end
 end
 
 class Instruction
@@ -130,7 +134,7 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
       "uint8_t #{operand_var(idx)}"
     when :imm_s8
       "int8_t #{operand_var(idx)}"
-    when :imm_s32
+    when :imm_s32, :rel
       "int32_t #{operand_var(idx)}"
     else
       raise("#{self.class}: unknown operand #{operand}")
@@ -153,6 +157,8 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
       gen_operand_imm_s32(idx, ipreg)
     when :imm_u8
       gen_operand_imm_u8(idx, ipreg)
+    when :rel
+      gen_operand_rel(idx, ipreg)
     else
       raise("#{self.class}: unknown operand #{operand}")
     end
@@ -195,16 +201,22 @@ DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.j
 
   def gen_operand_imm_s32(idx, ipreg)
     return <<-EOS
-{
-  #{operand_var(idx)} = *((int32_t*)(#{ipreg}));
-  #{ipreg} += 4;
-}
+#{operand_var(idx)} = *((int32_t*)(#{ipreg}));
+#{ipreg} += 4;
     EOS
   end
 
   def gen_operand_imm_u8(idx, ipreg)
     return <<-EOS
 #{operand_var(idx)} = FETCH_OPERAND_IMM_U8(#{ipreg});
+    EOS
+  end
+
+  def gen_operand_rel(idx, ipreg)
+    return <<-EOS
+assert(osize == 4);
+#{operand_var(idx)} = *((int32_t*)(#{ipreg}));
+#{ipreg} += 4;
     EOS
   end
 
@@ -292,6 +304,21 @@ class Instruction0xC7 < Instruction
   spec_body <<-EOS
 assert(osize == 4);
 *#{operand_var(0)} = #{operand_var(1)};
+  EOS
+end
+
+class Instruction0xE8 < Instruction
+  spec_mnemonic 'call'
+  spec_opcodes '0xe8'
+  spec_operands :rel
+  spec_body <<-EOS
+assert(odefault);
+{
+  uint64_t __tmp = #{ipreg()} + #{operand_var(0)};
+  rsp -= 8;
+  *((uint64_t*)rsp) = #{ipreg};
+  #{ipreg()} = __tmp;
+}
   EOS
 end
 
@@ -502,6 +529,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
       Instruction0xB0.new(),
       Instruction0xB8To0xBF.new(),
       Instruction0xC7.new(),
+      Instruction0xE8.new(),
     ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
   end
