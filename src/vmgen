@@ -118,7 +118,7 @@ case <%= opcode %>:
       vars.push(operand_var(idx))
     end
     return <<-EOS
-DEBUG("process: #{@mnemonic}#{' 0x%x' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.join(', ')});
+DEBUG("process: #{@mnemonic}#{' 0x%llx' * n}\\n"#{vars.empty? ? '' : ', '}#{vars.join(', ')});
     EOS
   end
 
@@ -322,6 +322,25 @@ assert(odefault);
   EOS
 end
 
+class Instruction0xFF < Instruction
+  spec_mnemonic 'inc/dec/call/callf/jmp/jmpf/push'
+  spec_opcodes '0xff'
+  spec_operands :modrm_extop, :modrm_modrm
+  spec_body <<-EOS
+assert(odefault);
+switch(#{operand_var(0)}) {
+case 0x04: // JMP
+{
+  #{ipreg()} = *#{operand_var(1)};
+  break;
+}
+default:
+  DEBUG("opcode 0xff: unsupported extop 0x%x\\n", #{operand_var(0)});
+  assert(false);
+}
+  EOS
+end
+
 class VMGen
   include CodeGenerator
 
@@ -358,8 +377,9 @@ class VMGen
   TEMPLATE = <<-EOS
 #include "lambchop.h"
 
-#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #include <assert.h>
 
@@ -530,6 +550,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
       Instruction0xB8To0xBF.new(),
       Instruction0xC7.new(),
       Instruction0xE8.new(),
+      Instruction0xFF.new(),
     ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
   end
