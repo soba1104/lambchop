@@ -399,6 +399,18 @@ default:
   EOS
 end
 
+class Instruction0x0F85 < Instruction
+  spec_mnemonic 'jnz/jne'
+  spec_opcodes '0x85'
+  spec_operands :imm_s32
+  spec_body <<-EOS
+assert(odefault);
+if (CHECK_PF(#{flags()})) {
+  #{ipreg()} += #{operand_var(0)};
+}
+  EOS
+end
+
 class VMGen
   include CodeGenerator
 
@@ -514,6 +526,16 @@ class VMGen
 #define CLEAR_DF(flags) ((flags) &= FLAG_D)
 #define CLEAR_OF(flags) ((flags) &= FLAG_O)
 
+#define CHECK_CF(flags) ((flags) & FLAG_C)
+#define CHECK_PF(flags) ((flags) & FLAG_P)
+#define CHECK_AF(flags) ((flags) & FLAG_A)
+#define CHECK_ZF(flags) ((flags) & FLAG_Z)
+#define CHECK_SF(flags) ((flags) & FLAG_S)
+#define CHECK_TF(flags) ((flags) & FLAG_T)
+#define CHECK_IF(flags) ((flags) & FLAG_I)
+#define CHECK_DF(flags) ((flags) & FLAG_D)
+#define CHECK_OF(flags) ((flags) & FLAG_O)
+
 bool pb64(uint64_t bits) {
   bool b = true;
   while(bits) {
@@ -619,6 +641,21 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
     assert(opcode != OPERAND_SIZE_PREFIX);
     assert(opcode != ADDRESS_SIZE_PREFIX);
     switch(opcode) {
+    case 0x0f: // two byte instructions
+    {
+<% indent = 6 -%>
+<%= gen_opcode_fetch('rip', 'opcode', indent) -%>
+      switch(opcode) {
+<% instructions0x0f.each do |inst| -%>
+<%= gen_instruction(inst, 'rip', indent) -%>
+<% end -%>
+      default:
+        DEBUG("unsupported opcode: 0x0f%x\\n", opcode);
+        assert(false);
+      }
+      break;
+    }
+<% indent = 4 -%>
 <% instructions.each do |inst| -%>
 <%= gen_instruction(inst, 'rip', indent) -%>
 <% end -%>
@@ -651,6 +688,9 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
       Instruction0xE9.new(),
       Instruction0xF7.new(),
       Instruction0xFF.new(),
+    ]
+    instructions0x0f = [
+      Instruction0x0F85.new()
     ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
   end
