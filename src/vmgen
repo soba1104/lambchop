@@ -49,6 +49,14 @@ module CodeGenerator
   def ipreg()
     'rip'
   end
+
+  def msb()
+    '(1ULL << 63)'
+  end
+
+  def flags()
+    'flags'
+  end
 end
 
 class Instruction
@@ -343,6 +351,35 @@ assert(odefault);
   EOS
 end
 
+class Instruction0xF7 < Instruction
+  spec_mnemonic 'test'
+  spec_opcodes '0xf7'
+  spec_operands :modrm_modrm, :imm_s32
+  spec_body <<-EOS
+assert(osize == 8);
+{
+  int64_t __tmp = (*((int64_t*)#{operand_var(0)}) & #{operand_var(1)});
+  if (__tmp & #{msb()}) {
+    SET_SF(#{flags()});
+  } else {
+    CLEAR_SF(#{flags()});
+  }
+  if (__tmp == 0) {
+    SET_ZF(#{flags()});
+  } else {
+    CLEAR_ZF(#{flags()});
+  }
+  if (pb64(__tmp)) {
+    SET_PF(#{flags()});
+  } else {
+    CLEAR_PF(#{flags()});
+  }
+  CLEAR_CF(#{flags()});
+  CLEAR_OF(#{flags()});
+}
+  EOS
+end
+
 class Instruction0xFF < Instruction
   spec_mnemonic 'inc/dec/call/callf/jmp/jmpf/push'
   spec_opcodes '0xff'
@@ -447,6 +484,45 @@ class VMGen
 #define OPERAND_SIZE_PREFIX 0x66
 #define ADDRESS_SIZE_PREFIX 0x67
 
+#define FLAG_C 0b00000000000000000000000000000001ULL
+#define FLAG_P 0b00000000000000000000000000000100ULL
+#define FLAG_A 0b00000000000000000000000000010000ULL
+#define FLAG_Z 0b00000000000000000000000001000000ULL
+#define FLAG_S 0b00000000000000000000000010000000ULL
+#define FLAG_T 0b00000000000000000000000100000000ULL
+#define FLAG_I 0b00000000000000000000001000000000ULL
+#define FLAG_D 0b00000000000000000000010000000000ULL
+#define FLAG_O 0b00000000000000000000100000000000ULL
+
+#define SET_CF(flags) ((flags) |= FLAG_C)
+#define SET_PF(flags) ((flags) |= FLAG_P)
+#define SET_AF(flags) ((flags) |= FLAG_A)
+#define SET_ZF(flags) ((flags) |= FLAG_Z)
+#define SET_SF(flags) ((flags) |= FLAG_S)
+#define SET_TF(flags) ((flags) |= FLAG_T)
+#define SET_IF(flags) ((flags) |= FLAG_I)
+#define SET_DF(flags) ((flags) |= FLAG_D)
+#define SET_OF(flags) ((flags) |= FLAG_O)
+
+#define CLEAR_CF(flags) ((flags) &= FLAG_C)
+#define CLEAR_PF(flags) ((flags) &= FLAG_P)
+#define CLEAR_AF(flags) ((flags) &= FLAG_A)
+#define CLEAR_ZF(flags) ((flags) &= FLAG_Z)
+#define CLEAR_SF(flags) ((flags) &= FLAG_S)
+#define CLEAR_TF(flags) ((flags) &= FLAG_T)
+#define CLEAR_IF(flags) ((flags) &= FLAG_I)
+#define CLEAR_DF(flags) ((flags) &= FLAG_D)
+#define CLEAR_OF(flags) ((flags) &= FLAG_O)
+
+bool pb64(uint64_t bits) {
+  bool b = true;
+  while(bits) {
+    b = !(b == (bits & 1));
+    bits >>= 1;
+  }
+  return b;
+}
+
 uint64_t *fetch_operand_modrm_modrm(uint8_t modrm, uint8_t rex, uint64_t **regs, uint64_t *ipp) {
   uint8_t mod = MODRM_MOD(modrm);
   uint8_t rm = MODRM_RM(modrm);
@@ -511,7 +587,7 @@ static const char *regnames[] = {
 };
 
 int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
-  uint64_t rip, *regs[16];
+  uint64_t rip, *regs[16], flags = 0;
   uint8_t opcode, rex, modrm;
   void *stack = malloc(stacksize);
 <% REGNAMES.each do |r| -%>
@@ -573,6 +649,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
       Instruction0xC7.new(),
       Instruction0xE8.new(),
       Instruction0xE9.new(),
+      Instruction0xF7.new(),
       Instruction0xFF.new(),
     ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
