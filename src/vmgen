@@ -333,6 +333,16 @@ assert(odefault);
   EOS
 end
 
+class Instruction0xE9 < Instruction
+  spec_mnemonic 'jmp'
+  spec_opcodes '0xe9'
+  spec_operands :rel
+  spec_body <<-EOS
+assert(odefault);
+#{ipreg()} += #{operand_var(0)};
+  EOS
+end
+
 class Instruction0xFF < Instruction
   spec_mnemonic 'inc/dec/call/callf/jmp/jmpf/push'
   spec_opcodes '0xff'
@@ -562,6 +572,7 @@ int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger) {
       Instruction0xB8To0xBF.new(),
       Instruction0xC7.new(),
       Instruction0xE8.new(),
+      Instruction0xE9.new(),
       Instruction0xFF.new(),
     ]
     ERB.new(TEMPLATE, 0, '%-').result(binding)
