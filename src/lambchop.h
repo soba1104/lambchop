@@ -37,5 +37,6 @@ bool lambchop_file_read_all(const char *path, lambchop_logger *logger, char **bu
 
 int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger);
 int lambchop_vm_run(void *mainfunc, lambchop_logger *logger);
+int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logger);
 
 #endif

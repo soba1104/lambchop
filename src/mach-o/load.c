@@ -500,7 +500,17 @@ static void *macho_loader_call_dyld(macho_loader *dyld_loader, macho_loader *app
   }
   dyldfunc = (void*)(dyldfunc_addr + dyld_loader->slide);
 
-  return dyldfunc(app_loader->hdrvm, 0, args, dyld_loader->slide, dyld_loader->hdrvm, &glue);
+  {
+    uint64_t dyldargv[6];
+    dyldargv[0] = (uint64_t)app_loader->hdrvm;
+    dyldargv[1] = 0;
+    dyldargv[2] = (uint64_t)args;
+    dyldargv[3] = (uint64_t)dyld_loader->slide;
+    dyldargv[4] = (uint64_t)dyld_loader->hdrvm;
+    dyldargv[5] = (uint64_t)&glue;
+    return lambchop_vm_call(dyldfunc, 6, dyldargv, logger);
+  }
+  /*return dyldfunc(app_loader->hdrvm, 0, args, dyld_loader->slide, dyld_loader->hdrvm, &glue);*/
 }
 
 void *lambchop_macho_load(char *app_path, char *dyld_path, lambchop_logger *logger, char **envp, char **apple) {
