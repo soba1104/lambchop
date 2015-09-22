@@ -66,10 +66,20 @@ int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logg
     opcode = get_opcode(insn);
     DEBUG("0x%llx: %x(%s)\n", rip, opcode, get_opcode_name(insn));
     if (opcode == 0x40e) { // syscall
-      rax = get_rax(cpu);
-      DEBUG("syscal: rax = 0x%llx\n", rax);
+      uint64_t id = get_rax(cpu);
+      uint64_t a0 = get_rdi(cpu);
+      uint64_t a1 = get_rsi(cpu);
+      uint64_t a2 = get_rdx(cpu);
+      uint64_t a3 = get_rcx(cpu);
+      uint64_t a4 = get_r8(cpu);
+      uint64_t res;
+      DEBUG("syscall: id = 0x%llx\n", id);
+      res = lambchop_syscall(id, a0, a1, a2, a3, a4);
+      DEBUG("syscall: id = 0x%llx, result = 0x%llx\n", id, res);
+      set_rax(cpu, res);
+    } else {
+      step(cpu, insn);
     }
-    step(cpu, insn);
   }
   free_insn(insn);
   free_cpu(cpu);

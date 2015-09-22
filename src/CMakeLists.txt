@@ -3,7 +3,7 @@ EXECUTE_PROCESS(COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/vmgen" OUTPUT_FILE "${CMAKE
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS_DEBUG} -O0 -g")
 
 SET(LAMBCHOP_HEADERS lambchop.h)
-SET(LAMBCHOP_SOURCES ${LAMBCHOP_HEADERS} main.c logger.c mach-o/dump.c mach-o/load.c file.c vm.c vm_main.c)
+SET(LAMBCHOP_SOURCES ${LAMBCHOP_HEADERS} main.c logger.c mach-o/dump.c mach-o/load.c file.c vm.c vm_main.c syscall.s)
 
 SET(LAMBCHOP_EXECUTABLE lambchop_executable)
 SET(LAMBCHOP_EXECUTABLE_OUTPUT lambchop)
