@@ -135,7 +135,7 @@ static void trace() {
     attach(pid);
     task_t port = get_port(pid);
     for (i = 0;; i++) {
-      printf("%d ", i++);
+      printf("%08d ", i++);
       dumpstate(port);
       step(pid);
     }
