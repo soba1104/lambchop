@@ -41,4 +41,6 @@ int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logg
 
 uint64_t lambchop_syscall(uint64_t id, uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4);
 
+void lambchop_trace(void);
+
 #endif

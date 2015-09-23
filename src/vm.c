@@ -63,6 +63,7 @@ int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logg
     rip = get_rip(cpu);
     clear_insn(insn);
     decode64(cpu, insn);
+    // TODO lock prefix がついているかどうか確認 & 全vmで共通のロックをとって排他制御
     opcode = get_opcode(insn);
     DEBUG("0x%llx: %x(%s)\n", rip, opcode, get_opcode_name(insn));
     if (opcode == 0x40e) { // syscall
@@ -77,6 +78,10 @@ int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logg
       res = lambchop_syscall(id, a0, a1, a2, a3, a4);
       DEBUG("syscall: id = 0x%llx, result = 0x%llx\n", id, res);
       set_rax(cpu, res);
+    } else if (opcode == 0xb8) {
+      uint64_t id = get_rax(cpu);
+      DEBUG("int3: id = 0x%llx\n", id);
+      assert(false);
     } else {
       step(cpu, insn);
     }
