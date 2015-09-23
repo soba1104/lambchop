@@ -35,8 +35,26 @@ static void dumpstate(task_t port) {
     fatal("failed to get thread state\n");
   }
 
-  printf("(0x%llx):rax = 0x%llx\n", state.__rip, state.__rax);
-
+  printf("0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx\n",
+         state.__rip,
+         state.__rax,
+         state.__rbx,
+         state.__rcx,
+         state.__rdx,
+         state.__rdi,
+         state.__rsi,
+         state.__rbp,
+         state.__rsp,
+         state.__r8,
+         state.__r9,
+         state.__r10,
+         state.__r11,
+         state.__r12,
+         state.__r13,
+         state.__r14,
+         state.__r15,
+         state.__rflags
+        );
   if (task_resume(port)) {
     fatal("failed to resume port\n");
   }
