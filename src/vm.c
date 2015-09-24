@@ -40,7 +40,7 @@ int vm_main(void *mainfunc, lambchop_logger *logger) {
 }
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
-  DEBUG("0x%llx,%s,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%x\n",
+  DEBUG("0x%llx,%s,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx\n",
       rip,
       get_opcode_name(insn),
       get_rax(cpu),
@@ -59,7 +59,7 @@ static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logg
       get_r13(cpu),
       get_r14(cpu),
       get_r15(cpu),
-      get_eflags(cpu)
+      get_rflags(cpu)
       );
 }
 
@@ -77,13 +77,14 @@ static const char *unix_syscalls[] = {
 };
 
 void handle_syscall(void *cpu, lambchop_logger *logger) {
-  uint64_t id = get_rax(cpu);
+  uint64_t rax = get_rax(cpu);
+  uint64_t id = rax;
   uint64_t a0 = get_rdi(cpu);
   uint64_t a1 = get_rsi(cpu);
   uint64_t a2 = get_rdx(cpu);
   uint64_t a3 = get_r10(cpu);
   uint64_t a4 = get_r8(cpu);
-  uint64_t res, idx = id & ~SYSCALL_CLASS_MASK;
+  uint64_t rflags, idx = id & ~SYSCALL_CLASS_MASK;
   const char *name = NULL;
 
   switch (id & SYSCALL_CLASS_MASK) {
@@ -101,10 +102,11 @@ void handle_syscall(void *cpu, lambchop_logger *logger) {
     default:
       assert(false);
   }
-  res = lambchop_syscall(id, a0, a1, a2, a3, a4);
-  DEBUG("SYSCALL: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx\n",
-        name, id, a0, a1, a2, a3, a4, res);
-  set_rax(cpu, res);
+  rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4);
+  DEBUG("SYSCALL: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
+        name, id, a0, a1, a2, a3, a4, rax, rflags);
+  set_rax(cpu, rax);
+  set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
 }
 
 int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
