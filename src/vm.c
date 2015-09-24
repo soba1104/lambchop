@@ -63,6 +63,50 @@ static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logg
       );
 }
 
+#define SYSCALL_CLASS_MASK (0xff << 24)
+#define SYSCALL_CLASS_MACH (0x01 << 24)
+#define SYSCALL_CLASS_UNIX (0x02 << 24)
+#define SYSCALL_CLASS_MDEP (0x03 << 24)
+#define UNIX_SYSCALL(name, id) #name,
+#define UNIX_OLD_SYSCALL(name, id) #name,
+#define UNIX_ERROR_SYSCALL(id) NULL,
+#define UNIX_SYSCALL_NUM ((sizeof(unix_syscalls) / sizeof(char*)) - 1)
+static const char *unix_syscalls[] = {
+#include "unix_syscalls.h"
+  NULL
+};
+
+void handle_syscall(void *cpu, lambchop_logger *logger) {
+  uint64_t id = get_rax(cpu);
+  uint64_t a0 = get_rdi(cpu);
+  uint64_t a1 = get_rsi(cpu);
+  uint64_t a2 = get_rdx(cpu);
+  uint64_t a3 = get_rcx(cpu);
+  uint64_t a4 = get_r8(cpu);
+  uint64_t res, idx = id & ~SYSCALL_CLASS_MASK;
+  const char *name = NULL;
+
+  switch (id & SYSCALL_CLASS_MASK) {
+    case SYSCALL_CLASS_MACH:
+      break;
+    case SYSCALL_CLASS_UNIX:
+      if (idx >= UNIX_SYSCALL_NUM) {
+        assert(false);
+      }
+      name = unix_syscalls[idx];
+      assert(name);
+      break;
+    case SYSCALL_CLASS_MDEP:
+      break;
+    default:
+      assert(false);
+  }
+  res = lambchop_syscall(id, a0, a1, a2, a3, a4);
+  DEBUG("SYSCALL: %s(0x%llx)(%llx, %llx, %llx, %llx, %llx) = 0x%llx\n",
+        name, id, a0, a1, a2, a3, a4, res);
+  set_rax(cpu, res);
+}
+
 int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
   uint8_t *stack;
   uint16_t opcode;
@@ -91,17 +135,7 @@ int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logg
     opcode = get_opcode(insn);
     dumpstate(cpu, insn, rip, logger);
     if (opcode == 0x40e) { // syscall
-      uint64_t id = get_rax(cpu);
-      uint64_t a0 = get_rdi(cpu);
-      uint64_t a1 = get_rsi(cpu);
-      uint64_t a2 = get_rdx(cpu);
-      uint64_t a3 = get_rcx(cpu);
-      uint64_t a4 = get_r8(cpu);
-      uint64_t res;
-      /*DEBUG("syscall: id = 0x%llx\n", id);*/
-      res = lambchop_syscall(id, a0, a1, a2, a3, a4);
-      /*DEBUG("syscall: id = 0x%llx, result = 0x%llx\n", id, res);*/
-      set_rax(cpu, res);
+      handle_syscall(cpu, logger);
     } else if (opcode == 0xb8) {
       uint64_t id = get_rax(cpu);
       DEBUG("int3: id = 0x%llx\n", id);
