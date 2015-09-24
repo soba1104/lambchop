@@ -81,7 +81,7 @@ void handle_syscall(void *cpu, lambchop_logger *logger) {
   uint64_t a0 = get_rdi(cpu);
   uint64_t a1 = get_rsi(cpu);
   uint64_t a2 = get_rdx(cpu);
-  uint64_t a3 = get_rcx(cpu);
+  uint64_t a3 = get_r10(cpu);
   uint64_t a4 = get_r8(cpu);
   uint64_t res, idx = id & ~SYSCALL_CLASS_MASK;
   const char *name = NULL;
@@ -102,7 +102,7 @@ void handle_syscall(void *cpu, lambchop_logger *logger) {
       assert(false);
   }
   res = lambchop_syscall(id, a0, a1, a2, a3, a4);
-  DEBUG("SYSCALL: %s(0x%llx)(%llx, %llx, %llx, %llx, %llx) = 0x%llx\n",
+  DEBUG("SYSCALL: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx\n",
         name, id, a0, a1, a2, a3, a4, res);
   set_rax(cpu, res);
 }
