@@ -500,7 +500,7 @@ static void *macho_loader_call_dyld(macho_loader *dyld_loader, macho_loader *app
   }
   dyldfunc = (void*)(dyldfunc_addr + dyld_loader->slide);
 
-#if 0
+#if 1
   {
     uint64_t dyldargv[6];
     dyldargv[0] = (uint64_t)app_loader->hdrvm;
