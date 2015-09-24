@@ -84,6 +84,7 @@ void handle_syscall(void *cpu, lambchop_logger *logger) {
   uint64_t a2 = get_rdx(cpu);
   uint64_t a3 = get_r10(cpu);
   uint64_t a4 = get_r8(cpu);
+  uint64_t a5 = get_r9(cpu);
   uint64_t rflags, idx = id & ~SYSCALL_CLASS_MASK;
   const char *name = NULL;
 
@@ -102,9 +103,9 @@ void handle_syscall(void *cpu, lambchop_logger *logger) {
     default:
       assert(false);
   }
-  rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4);
-  DEBUG("SYSCALL: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
-        name, id, a0, a1, a2, a3, a4, rax, rflags);
+  rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4, a5);
+  DEBUG("SYSCALL: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
+        name, id, a0, a1, a2, a3, a4, a5, rax, rflags);
   set_rax(cpu, rax);
   set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
 }

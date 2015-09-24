@@ -1,0 +1,9 @@
+VM_ALLOCATE            0000000300000000-0000000300001000 [    4K] r-x/rwx SM=PRV  
+VM_ALLOCATE            0000000300001000-0000000300002000 [    4K] rw-/rwx SM=ZER  
+VM_ALLOCATE            0000000300002000-0000000300003000 [    4K] r--/rwx SM=ZER  
+
+mapped file            0000000300009000-000000030000b000 [    8K] r-x/rwx SM=COW  /usr/lib/libSystem.B.dylib
+mapped file            000000030000b000-000000030000c000 [    4K] rw-/rwx SM=COW  /usr/lib/libSystem.B.dylib
+mapped file            000000030000c000-000000030000f000 [   12K] r--/rwx SM=COW  /usr/lib/libSystem.B.dylib
+dylib (reserved)       000000030000f000-0000000300010000 [    4K] rw-/rwx SM=NUL  reserved VM address space (unallocated)
+
