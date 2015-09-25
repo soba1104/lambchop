@@ -151,7 +151,7 @@ uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger 
   uint64_t rip, rax;
   int r;
 
-  INFO("start\n");
+  INFO("lambchop_vm_call: start\n");
   r = posix_memalign((void**)&stack, 0x1000, 0x1000000);
   assert(r >= 0);
   cpu = alloc_cpu();
@@ -191,6 +191,7 @@ uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger 
   free_insn(insn);
   free_cpu(cpu);
   free(stack);
+  INFO("lambchop_vm_call: finish\n");
   return rax;
 }
 
