@@ -93,6 +93,12 @@ static const char *mach_syscalls[] = {
   NULL
 };
 
+uint64_t trap_set_cthread_self(void *cpu, uint64_t self) {
+  set_gs_base(cpu, self);
+  clear_cf(cpu);
+  return 0x0f;
+}
+
 void handle_syscall(void *cpu, lambchop_logger *logger) {
   uint64_t rax = get_rax(cpu);
   uint64_t id = rax;
@@ -104,6 +110,7 @@ void handle_syscall(void *cpu, lambchop_logger *logger) {
   uint64_t a5 = get_r9(cpu);
   uint64_t rflags, idx = id & ~SYSCALL_CLASS_MASK;
   const char *name = NULL;
+  bool trapped = false;
 
   switch (id & SYSCALL_CLASS_MASK) {
     case SYSCALL_CLASS_MACH:
@@ -121,15 +128,20 @@ void handle_syscall(void *cpu, lambchop_logger *logger) {
       assert(name);
       break;
     case SYSCALL_CLASS_MDEP:
+      assert(idx == 0x03); // set cthread self
+      rax = trap_set_cthread_self(cpu, a0);
+      trapped = true;
       break;
     default:
       assert(false);
   }
-  rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4, a5);
+  if (!trapped) {
+    rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4, a5);
+    set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
+  }
   DEBUG("SYSCALL: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
         name, id, a0, a1, a2, a3, a4, a5, rax, rflags);
   set_rax(cpu, rax);
-  set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
 }
 
 int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
