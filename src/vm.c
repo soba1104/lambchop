@@ -158,12 +158,13 @@ uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger 
   memset(stack, 0, 0x1000000);
   set_stack(cpu, stack + 0x1000000 - 8);
   set_rip(cpu, (uint64_t)func);
-  set_rdi(cpu, argv[0]);
-  set_rsi(cpu, argv[1]);
-  set_rdx(cpu, argv[2]);
-  set_rcx(cpu, argv[3]);
-  set_r8(cpu, argv[4]);
-  set_r9(cpu, argv[5]);
+  if (argc > 0) set_rdi(cpu, argv[0]);
+  if (argc > 1) set_rsi(cpu, argv[1]);
+  if (argc > 2) set_rdx(cpu, argv[2]);
+  if (argc > 3) set_rcx(cpu, argv[3]);
+  if (argc > 4) set_r8(cpu, argv[4]);
+  if (argc > 5) set_r9(cpu, argv[5]);
+  assert(argc <= 6);
   insn = alloc_insn();
   while(true) {
     rip = get_rip(cpu);
