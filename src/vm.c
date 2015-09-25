@@ -75,12 +75,21 @@ static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logg
 #define SYSCALL_CLASS_MACH (0x01 << 24)
 #define SYSCALL_CLASS_UNIX (0x02 << 24)
 #define SYSCALL_CLASS_MDEP (0x03 << 24)
+
 #define UNIX_SYSCALL(name, id) #name,
 #define UNIX_OLD_SYSCALL(name, id) #name,
 #define UNIX_ERROR_SYSCALL(id) NULL,
 #define UNIX_SYSCALL_NUM ((sizeof(unix_syscalls) / sizeof(char*)) - 1)
 static const char *unix_syscalls[] = {
 #include "unix_syscalls.h"
+  NULL
+};
+
+#define MACH_SYSCALL(name, argc, id) #name,
+#define MACH_ERROR_SYSCALL(id) NULL,
+#define MACH_SYSCALL_NUM ((sizeof(mach_syscalls) / sizeof(char*)) - 1)
+static const char *mach_syscalls[] = {
+#include "mach_syscalls.h"
   NULL
 };
 
@@ -98,6 +107,11 @@ void handle_syscall(void *cpu, lambchop_logger *logger) {
 
   switch (id & SYSCALL_CLASS_MASK) {
     case SYSCALL_CLASS_MACH:
+      if (idx >= MACH_SYSCALL_NUM) {
+        assert(false);
+      }
+      name = mach_syscalls[idx];
+      assert(name);
       break;
     case SYSCALL_CLASS_UNIX:
       if (idx >= UNIX_SYSCALL_NUM) {
