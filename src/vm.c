@@ -44,7 +44,7 @@ int vm_main(void *mainfunc, lambchop_logger *logger) {
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
   static int count = 0;
-  if ((count++) <= 8300000) {
+  if ((count++) <= 10500000) {
   /*if ((count++) <= 7500000) {*/
     return;
   }
@@ -144,7 +144,7 @@ void handle_syscall(void *cpu, lambchop_logger *logger) {
   set_rax(cpu, rax);
 }
 
-int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
+uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
   uint8_t *stack;
   uint16_t opcode;
   void *cpu, *insn;
@@ -167,6 +167,9 @@ int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logg
   insn = alloc_insn();
   while(true) {
     rip = get_rip(cpu);
+    if (rip == 0) {
+      break;
+    }
     clear_insn(insn);
     r = decode64(cpu, insn);
     assert(r >= 0);
@@ -183,10 +186,11 @@ int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logg
       step(cpu, insn);
     }
   }
+  rax = get_rax(cpu);
   free_insn(insn);
   free_cpu(cpu);
   free(stack);
-  return 0;
+  return rax;
 }
 
 int lambchop_vm_run(void *mainfunc, lambchop_logger *logger) {
