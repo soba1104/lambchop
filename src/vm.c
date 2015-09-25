@@ -7,6 +7,8 @@
 #include <x86i.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
+
 int vm_main(void *mainfunc, lambchop_logger *logger) {
   uint8_t *stack;
   uint16_t opcode;
@@ -24,7 +26,8 @@ int vm_main(void *mainfunc, lambchop_logger *logger) {
   while(true) {
     rip = get_rip(cpu);
     clear_insn(insn);
-    decode64(cpu, insn);
+    r = decode64(cpu, insn);
+    assert(r >= 0);
     opcode = get_opcode(insn);
     DEBUG("0x%llx: %x(%s)\n", rip, opcode, get_opcode_name(insn));
     if (opcode == 0x40e) { // syscall
@@ -40,6 +43,11 @@ int vm_main(void *mainfunc, lambchop_logger *logger) {
 }
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
+  static int count = 0;
+  if ((count++) <= 8300000) {
+  /*if ((count++) <= 7500000) {*/
+    return;
+  }
   DEBUG("0x%llx,%s,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx\n",
       rip,
       get_opcode_name(insn),
@@ -121,6 +129,7 @@ int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logg
   r = posix_memalign((void**)&stack, 0x1000, 0x1000000);
   assert(r >= 0);
   cpu = alloc_cpu();
+  memset(stack, 0, 0x1000000);
   set_stack(cpu, stack + 0x1000000 - 8);
   set_rip(cpu, (uint64_t)func);
   set_rdi(cpu, argv[0]);
@@ -133,7 +142,8 @@ int lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logg
   while(true) {
     rip = get_rip(cpu);
     clear_insn(insn);
-    decode64(cpu, insn);
+    r = decode64(cpu, insn);
+    assert(r >= 0);
     // TODO lock prefix がついているかどうか確認 & 全vmで共通のロックをとって排他制御
     opcode = get_opcode(insn);
     dumpstate(cpu, insn, rip, logger);
