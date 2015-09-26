@@ -36,7 +36,7 @@ int main(int argc, char **argv, char **envp, char **apple) {
     lambchop_err(&logger, "failed to allocate vm\n");
     goto err;
   }
-  mainfunc = lambchop_macho_load(app_path, dyld_path, &logger, envp, apple);
+  mainfunc = lambchop_macho_load(vm, app_path, dyld_path, &logger, envp, apple);
   if (!mainfunc) {
     lambchop_err(&logger, "failed to load %s, %s\n", app_path, dyld_path);
     goto err;
