@@ -111,8 +111,7 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
   set_rax(cpu, rax);
 }
 
-uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
-  lambchop_vm_t *vm = lambchop_vm_alloc();
+uint64_t lambchop_vm_call(lambchop_vm_t *vm, void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
   uint8_t *stack;
   uint16_t opcode;
   void *cpu = vm->cpu, *insn = vm->insn;
@@ -154,16 +153,15 @@ uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger 
     }
   }
   rax = get_rax(cpu);
-  lambchop_vm_free(vm);
   free(stack);
   INFO("lambchop_vm_call finish: ret = %llx\n", rax);
   return rax;
 }
 
-int lambchop_vm_run(void *mainfunc, lambchop_logger *logger) {
+int lambchop_vm_run(lambchop_vm_t *vm, void *mainfunc, lambchop_logger *logger) {
   // TODO 引数を扱えるようにする。
   /*return ((int(*)(void))mainfunc)();*/
-  return lambchop_vm_call(mainfunc, 0, NULL, logger);
+  return lambchop_vm_call(vm, mainfunc, 0, NULL, logger);
 }
 
 lambchop_vm_t *lambchop_vm_alloc(void) {

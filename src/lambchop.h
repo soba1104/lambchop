@@ -42,8 +42,8 @@ bool lambchop_file_read_all(const char *path, lambchop_logger *logger, char **bu
 
 lambchop_vm_t *lambchop_vm_alloc(void);
 void lambchop_vm_free(lambchop_vm_t *vm);
-int lambchop_vm_run(void *mainfunc, lambchop_logger *logger);
-uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logger);
+int lambchop_vm_run(lambchop_vm_t *vm, void *mainfunc, lambchop_logger *logger);
+uint64_t lambchop_vm_call(lambchop_vm_t *vm, void *func, int argc, uint64_t *argv, lambchop_logger *logger);
 
 uint64_t lambchop_syscall(uint64_t *rax, uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5);
 
