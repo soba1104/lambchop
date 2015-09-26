@@ -145,16 +145,16 @@ void handle_syscall(void *cpu, lambchop_logger *logger) {
 }
 
 uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
+  lambchop_vm_t *vm = lambchop_alloc_vm();
   uint8_t *stack;
   uint16_t opcode;
-  void *cpu, *insn;
+  void *cpu = vm->cpu, *insn = vm->insn;
   uint64_t rip, rax;
   int r;
 
   INFO("lambchop_vm_call start: func = %llx\n", func);
   r = posix_memalign((void**)&stack, 0x1000, 0x1000000);
   assert(r >= 0);
-  cpu = alloc_cpu();
   memset(stack, 0, 0x1000000);
   set_stack(cpu, stack + 0x1000000 - 8);
   set_rip(cpu, (uint64_t)func);
@@ -165,7 +165,6 @@ uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger 
   if (argc > 4) set_r8(cpu, argv[4]);
   if (argc > 5) set_r9(cpu, argv[5]);
   assert(argc <= 6);
-  insn = alloc_insn();
   while(true) {
     rip = get_rip(cpu);
     if (rip == 0) {
@@ -188,8 +187,7 @@ uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger 
     }
   }
   rax = get_rax(cpu);
-  free_insn(insn);
-  free_cpu(cpu);
+  lambchop_free_vm(vm);
   free(stack);
   INFO("lambchop_vm_call finish: ret = %llx\n", rax);
   return rax;
