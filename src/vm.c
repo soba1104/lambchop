@@ -112,7 +112,7 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
 }
 
 uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
-  lambchop_vm_t *vm = lambchop_alloc_vm();
+  lambchop_vm_t *vm = lambchop_vm_alloc();
   uint8_t *stack;
   uint16_t opcode;
   void *cpu = vm->cpu, *insn = vm->insn;
@@ -154,7 +154,7 @@ uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger 
     }
   }
   rax = get_rax(cpu);
-  lambchop_free_vm(vm);
+  lambchop_vm_free(vm);
   free(stack);
   INFO("lambchop_vm_call finish: ret = %llx\n", rax);
   return rax;
@@ -166,7 +166,7 @@ int lambchop_vm_run(void *mainfunc, lambchop_logger *logger) {
   return lambchop_vm_call(mainfunc, 0, NULL, logger);
 }
 
-lambchop_vm_t *lambchop_alloc_vm(void) {
+lambchop_vm_t *lambchop_vm_alloc(void) {
   lambchop_vm_t *vm = malloc(sizeof(lambchop_vm_t));
   void *cpu = alloc_cpu();
   void *insn = alloc_insn();
@@ -178,7 +178,7 @@ lambchop_vm_t *lambchop_alloc_vm(void) {
   return vm;
 }
 
-void lambchop_free_vm(lambchop_vm_t *vm) {
+void lambchop_vm_free(lambchop_vm_t *vm) {
   free_insn(vm->insn);
   free_cpu(vm->cpu);
   free(vm);

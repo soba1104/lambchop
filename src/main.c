@@ -5,6 +5,7 @@
 
 int main(int argc, char **argv, char **envp, char **apple) {
   lambchop_logger logger;
+  lambchop_vm_t *vm = NULL;
   char *app_path, *dyld_path;
   void *mainfunc;
   int ret = 0;
@@ -29,6 +30,12 @@ int main(int argc, char **argv, char **envp, char **apple) {
     lambchop_err(&logger, "failed to dump %s\n", dyld_path);
     goto err;
   }
+
+  vm = lambchop_vm_alloc();
+  if (!vm) {
+    lambchop_err(&logger, "failed to allocate vm\n");
+    goto err;
+  }
   mainfunc = lambchop_macho_load(app_path, dyld_path, &logger, envp, apple);
   if (!mainfunc) {
     lambchop_err(&logger, "failed to load %s, %s\n", app_path, dyld_path);
@@ -41,5 +48,9 @@ err:
   ret = -1;
 
 out:
+  if (vm) {
+    lambchop_vm_free(vm);
+  }
+
   return ret;
 }
