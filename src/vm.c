@@ -60,13 +60,13 @@ static const char *mach_syscalls[] = {
   NULL
 };
 
-uint64_t trap_set_cthread_self(void *cpu, uint64_t self) {
+static uint64_t trap_set_cthread_self(void *cpu, uint64_t self) {
   set_gs_base(cpu, self);
   clear_cf(cpu);
   return 0x0f;
 }
 
-void handle_syscall(void *cpu, lambchop_logger *logger) {
+static void handle_syscall(void *cpu, lambchop_logger *logger) {
   uint64_t rax = get_rax(cpu);
   uint64_t id = rax;
   uint64_t a0 = get_rdi(cpu);
