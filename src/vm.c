@@ -44,7 +44,7 @@ int vm_main(void *mainfunc, lambchop_logger *logger) {
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
   static int count = 0;
-  if ((count++) <= 10500000) {
+  if ((count++) <= 10600000) {
   /*if ((count++) <= 7500000) {*/
     return;
   }
@@ -151,7 +151,7 @@ uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger 
   uint64_t rip, rax;
   int r;
 
-  INFO("lambchop_vm_call: start\n");
+  INFO("lambchop_vm_call start: func = %llx\n", func);
   r = posix_memalign((void**)&stack, 0x1000, 0x1000000);
   assert(r >= 0);
   cpu = alloc_cpu();
@@ -191,7 +191,7 @@ uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger 
   free_insn(insn);
   free_cpu(cpu);
   free(stack);
-  INFO("lambchop_vm_call: finish\n");
+  INFO("lambchop_vm_call finish: ret = %llx\n", rax);
   return rax;
 }
 
@@ -199,5 +199,24 @@ int lambchop_vm_run(void *mainfunc, lambchop_logger *logger) {
   // TODO 引数を扱えるようにする。
   /*return ((int(*)(void))mainfunc)();*/
   /*return lambchop_vm_main(mainfunc, 1024 * 1024, logger);*/
-  return vm_main(mainfunc, logger);
+  /*return vm_main(mainfunc, logger);*/
+  return lambchop_vm_call(mainfunc, 0, NULL, logger);
+}
+
+lambchop_vm_t *lambchop_alloc_vm(void) {
+  lambchop_vm_t *vm = malloc(sizeof(lambchop_vm_t));
+  void *cpu = alloc_cpu();
+  void *insn = alloc_insn();
+  assert(vm);
+  assert(cpu);
+  assert(insn);
+  vm->cpu = cpu;
+  vm->insn = insn;
+  return vm;
+}
+
+void lambchop_free_vm(lambchop_vm_t *vm) {
+  free_insn(vm->insn);
+  free_cpu(vm->cpu);
+  free(vm);
 }

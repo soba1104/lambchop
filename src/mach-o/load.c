@@ -509,7 +509,7 @@ static void *macho_loader_call_dyld(macho_loader *dyld_loader, macho_loader *app
     dyldargv[3] = (uint64_t)dyld_loader->slide;
     dyldargv[4] = (uint64_t)dyld_loader->hdrvm;
     dyldargv[5] = (uint64_t)&glue;
-    return lambchop_vm_call(dyldfunc, 6, dyldargv, logger);
+    return (void*)lambchop_vm_call(dyldfunc, 6, dyldargv, logger);
   }
 #else
   lambchop_trace();

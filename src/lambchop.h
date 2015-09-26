@@ -20,10 +20,15 @@
 #define lambchop_debug(logger, ...) lambchop_logger_log((logger), LAMBCHOP_LOG_DEBUG, __VA_ARGS__)
 
 typedef struct {
-    int level;
-    int fd;
-    pthread_mutex_t mutex;
+  int level;
+  int fd;
+  pthread_mutex_t mutex;
 } lambchop_logger;
+
+typedef struct {
+  void *cpu;
+  void *insn;
+} lambchop_vm_t;
 
 void lambchop_logger_log(lambchop_logger *logger, int level, const char *format, ...);
 void lambchop_logger_set_log_level(lambchop_logger *logger, int level);
@@ -35,6 +40,8 @@ void *lambchop_macho_load(char *app_path, char *dyld_path, lambchop_logger *logg
 
 bool lambchop_file_read_all(const char *path, lambchop_logger *logger, char **buf, size_t *size);
 
+lambchop_vm_t *lambchop_alloc_vm(void);
+void lambchop_free_vm(lambchop_vm_t *vm);
 int lambchop_vm_main(void *func, uint64_t stacksize, lambchop_logger *logger);
 int lambchop_vm_run(void *mainfunc, lambchop_logger *logger);
 uint64_t lambchop_vm_call(void *func, int argc, uint64_t *argv, lambchop_logger *logger);
