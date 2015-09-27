@@ -86,7 +86,7 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
       }
       name = mach_syscalls[idx];
 #ifdef __ARM__
-      rax = idx;
+      rax = idx - 1;
 #endif
       assert(name);
       break;
@@ -96,7 +96,7 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
       }
       name = unix_syscalls[idx];
 #ifdef __ARM__
-      rax = idx - 1;
+      rax = idx;
 #endif
       assert(name);
       break;
