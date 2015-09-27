@@ -1,3 +1,5 @@
+#ifndef __ARM__
+
 .text
 .globl _lambchop_syscall
 _lambchop_syscall:
@@ -15,3 +17,5 @@ movq %rax, (%rdi)
 pushfq
 popq %rax
 ret
+
+#endif
