@@ -8,7 +8,7 @@ SET(LAMBCHOP_SOURCES ${LAMBCHOP_HEADERS}
                      mach-o/load.c
                      file.c
                      vm.c
-                     syscall.s
+                     syscall.S
                      trace.c)
 
 SET(LAMBCHOP_EXECUTABLE lambchop_executable)
