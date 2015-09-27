@@ -1,4 +1,23 @@
-#ifndef __ARM__
+#ifdef __ARM__
+
+.text
+.globl _lambchop_syscall
+_lambchop_syscall:
+str x0, [sp, #8]
+ldr x16, [x0]
+mov x0, x1
+mov x1, x2
+mov x2, x3
+mov x3, x4
+mov x4, x5
+mov x5, x6
+svc #128
+ldr x1, [sp, #8]
+str x0, [x1]
+movz x0, #0
+ret
+
+#else
 
 .text
 .globl _lambchop_syscall

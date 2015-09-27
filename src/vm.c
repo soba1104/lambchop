@@ -66,39 +66,6 @@ static uint64_t trap_set_cthread_self(void *cpu, uint64_t self) {
   return 0x0f;
 }
 
-#ifdef __ARM__
-__attribute__((noinline)) uint64_t lambchop_syscall(uint64_t *rax,
-                                                    uint64_t a0,
-                                                    uint64_t a1,
-                                                    uint64_t a2,
-                                                    uint64_t a3,
-                                                    uint64_t a4,
-                                                    uint64_t a5) {
-  uint64_t id = *rax;
-  int64_t res = 0;
-  __asm__ (
-      "mov x0, %[a0]\n\t"
-      "mov x1, %[a1]\n\t"
-      "mov x2, %[a2]\n\t"
-      "mov x3, %[a3]\n\t"
-      "mov x4, %[a4]\n\t"
-      "mov x5, %[a5]\n\t"
-      "mov x16, %[id]\n\t"
-      "svc #128\n\t"
-      "mov %[res], x0\n\t"
-      :[res]"=r"(res)
-      :[a0]"r"(a0), [a1]"r"(a1), [a2]"r"(a2),
-      [a3]"r"(a3), [a4]"r"(a4), [a5]"r"(a5),
-      [id]"r"(id)
-      :"x0", "x1", "x2", "x8", "memory"
-      );
-  *rax = res;
-  return 0; // TODO rflags を返す。
-  }
-
-}
-#endif
-
 static void handle_syscall(void *cpu, lambchop_logger *logger) {
   uint64_t rax = get_rax(cpu);
   uint64_t id = rax;
