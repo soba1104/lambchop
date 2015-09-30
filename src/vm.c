@@ -153,7 +153,8 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
   if (!trapped) {
     assert(syscall);
     assert(syscall->func);
-    syscall->func(syscall, cpu, logger);
+    /*syscall->func(syscall, cpu, logger);*/
+    rax = convert_syscall_id(id);
     rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4, a5);
     set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
     set_rax(cpu, rax);
