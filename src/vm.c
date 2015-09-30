@@ -38,6 +38,11 @@ static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logg
       );
 }
 
+#define SYSCALL_CLASS_MASK (0xff << 24)
+#define SYSCALL_CLASS_MACH (0x01 << 24)
+#define SYSCALL_CLASS_UNIX (0x02 << 24)
+#define SYSCALL_CLASS_MDEP (0x03 << 24)
+
 struct __syscall_entry;
 typedef void (*syscall_callback)(const struct __syscall_entry *syscall, void *cpu, lambchop_logger *logger);
 
@@ -45,6 +50,27 @@ typedef struct __syscall_entry {
   const char *name;
   syscall_callback func;
 } syscall_entry;
+
+static uint64_t convert_syscall_id(uint64_t id) {
+  switch (id & SYSCALL_CLASS_MASK) {
+    case SYSCALL_CLASS_MACH:
+#ifdef __ARM__
+      return (id & ~SYSCALL_CLASS_MASK) - 1;
+#else
+      return id;
+#endif
+    case SYSCALL_CLASS_UNIX:
+#ifdef __ARM__
+      return (id & ~SYSCALL_CLASS_MASK);
+#else
+      return id;
+#endif
+    case SYSCALL_CLASS_MDEP:
+      assert(false); // TODO
+    default:
+      assert(false);
+  }
+}
 
 static void syscall_callback_set_cthread_self(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t self = get_rdi(cpu);
@@ -61,11 +87,6 @@ static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambc
   DEBUG("SYSCALL TODO: %s\n", syscall->name);
   assert(false);
 }
-
-#define SYSCALL_CLASS_MASK (0xff << 24)
-#define SYSCALL_CLASS_MACH (0x01 << 24)
-#define SYSCALL_CLASS_UNIX (0x02 << 24)
-#define SYSCALL_CLASS_MDEP (0x03 << 24)
 
 #define UNIX_SYSCALL(name, id, func) {#name, syscall_callback_##func},
 #define UNIX_OLD_SYSCALL(name, id) {#name, syscall_callback_todo},
