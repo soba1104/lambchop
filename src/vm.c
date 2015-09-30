@@ -11,7 +11,7 @@
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
   static int count = 0;
-  if ((count++) <= 10600000) {
+  if ((count++) <= 11000000) {
   /*if ((count++) <= 7500000) {*/
     return;
   }
@@ -38,26 +38,35 @@ static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logg
       );
 }
 
+void syscall_callback_todo(uint64_t id, int argc, uint64_t *argv) {
+  assert(false);
+}
+
+typedef struct {
+  const char *name;
+  void *func;
+} syscall_entry;
+
 #define SYSCALL_CLASS_MASK (0xff << 24)
 #define SYSCALL_CLASS_MACH (0x01 << 24)
 #define SYSCALL_CLASS_UNIX (0x02 << 24)
 #define SYSCALL_CLASS_MDEP (0x03 << 24)
 
-#define UNIX_SYSCALL(name, id) #name,
-#define UNIX_OLD_SYSCALL(name, id) #name,
-#define UNIX_ERROR_SYSCALL(id) NULL,
-#define UNIX_SYSCALL_NUM ((sizeof(unix_syscalls) / sizeof(char*)) - 1)
-static const char *unix_syscalls[] = {
+#define UNIX_SYSCALL(name, id, func) {#name, syscall_callback_##func},
+#define UNIX_OLD_SYSCALL(name, id) {#name, syscall_callback_todo},
+#define UNIX_ERROR_SYSCALL(id) {NULL, NULL},
+#define UNIX_SYSCALL_NUM ((sizeof(unix_syscalls) / sizeof(syscall_entry)) - 1)
+static const syscall_entry unix_syscalls[] = {
 #include "unix_syscalls.h"
-  NULL
+  {NULL, NULL}
 };
 
-#define MACH_SYSCALL(name, argc, id) #name,
-#define MACH_ERROR_SYSCALL(id) NULL,
-#define MACH_SYSCALL_NUM ((sizeof(mach_syscalls) / sizeof(char*)) - 1)
-static const char *mach_syscalls[] = {
+#define MACH_SYSCALL(name, argc, id, func) {#name, syscall_callback_##func},
+#define MACH_ERROR_SYSCALL(id) {NULL, NULL},
+#define MACH_SYSCALL_NUM ((sizeof(mach_syscalls) / sizeof(syscall_entry)) - 1)
+static const syscall_entry mach_syscalls[] = {
 #include "mach_syscalls.h"
-  NULL
+  {NULL, NULL}
 };
 
 static uint64_t trap_set_cthread_self(void *cpu, uint64_t self) {
@@ -76,6 +85,7 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
   uint64_t a4 = get_r8(cpu);
   uint64_t a5 = get_r9(cpu);
   uint64_t rflags, idx = id & ~SYSCALL_CLASS_MASK;
+  const syscall_entry *syscall;
   const char *name = NULL;
   bool trapped = false;
 
@@ -84,7 +94,8 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
       if (idx >= MACH_SYSCALL_NUM) {
         assert(false);
       }
-      name = mach_syscalls[idx];
+      syscall = &mach_syscalls[idx];
+      name = syscall->name;
 #ifdef __ARM__
       rax = idx - 1;
 #endif
@@ -94,7 +105,8 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
       if (idx >= UNIX_SYSCALL_NUM) {
         assert(false);
       }
-      name = unix_syscalls[idx];
+      syscall = &unix_syscalls[idx];
+      name = syscall->name;
 #ifdef __ARM__
       rax = idx;
 #endif
