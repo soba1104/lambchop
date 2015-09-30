@@ -124,11 +124,9 @@ static const syscall_entry mach_syscalls[] = {
 };
 
 static void handle_syscall(void *cpu, lambchop_logger *logger) {
-  uint64_t rax = get_rax(cpu);
-  uint64_t id = rax;
+  uint64_t id = get_rax(cpu);
   uint64_t idx = id & ~SYSCALL_CLASS_MASK;
   const syscall_entry *syscall = NULL;
-  const char *name = NULL;
   bool trapped = false;
 
   switch (id & SYSCALL_CLASS_MASK) {
@@ -137,22 +135,12 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
         assert(false);
       }
       syscall = &mach_syscalls[idx];
-      name = syscall->name;
-#ifdef __ARM__
-      rax = idx - 1;
-#endif
-      assert(name);
       break;
     case SYSCALL_CLASS_UNIX:
       if (idx >= UNIX_SYSCALL_NUM) {
         assert(false);
       }
       syscall = &unix_syscalls[idx];
-      name = syscall->name;
-#ifdef __ARM__
-      rax = idx;
-#endif
-      assert(name);
       break;
     case SYSCALL_CLASS_MDEP:
       assert(idx == 0x03); // set cthread self
@@ -165,6 +153,7 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
   if (!trapped) {
     assert(syscall);
     assert(syscall->func);
+    assert(syscall->name);
     syscall->func(syscall, cpu, logger);
   }
 }
