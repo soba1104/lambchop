@@ -52,9 +52,11 @@ static void syscall_callback_todo(uint64_t id, void *cpu, int argc) {
   assert(false);
 }
 
+typedef void (*syscall_callback)(uint64_t id, void *cpu, int argc);
+
 typedef struct {
   const char *name;
-  void *func;
+  syscall_callback func;
 } syscall_entry;
 
 #define SYSCALL_CLASS_MASK (0xff << 24)
@@ -124,14 +126,16 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
     default:
       assert(false);
   }
+  DEBUG("SYSCALL START: %s\n", name);
   if (!trapped) {
     assert(syscall);
     assert(syscall->func);
+    syscall->func(rax, cpu, -1);
     rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4, a5);
     set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
     set_rax(cpu, rax);
   }
-  DEBUG("SYSCALL: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
+  DEBUG("SYSCALL END: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
         name, id, a0, a1, a2, a3, a4, a5, rax, rflags);
 }
 
