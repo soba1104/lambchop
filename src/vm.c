@@ -86,16 +86,21 @@ static void syscall_callback_set_cthread_self(const syscall_entry *syscall, void
 
 static void syscall_callback_passthrough(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t id = convert_syscall_id(syscall);
+  uint64_t rsp = get_rsp(cpu);
   uint64_t a0 = get_rdi(cpu);
   uint64_t a1 = get_rsi(cpu);
   uint64_t a2 = get_rdx(cpu);
   uint64_t a3 = get_r10(cpu);
   uint64_t a4 = get_r8(cpu);
   uint64_t a5 = get_r9(cpu);
+  uint64_t a6 = *((uint64_t*)(rsp + 0x00));
+  uint64_t a7 = *((uint64_t*)(rsp + 0x08));
+  uint64_t a8 = *((uint64_t*)(rsp + 0x10));
+  uint64_t a9 = *((uint64_t*)(rsp + 0x18));
   uint64_t rflags, idret;
 
   idret = id;
-  rflags = lambchop_syscall(&idret, a0, a1, a2, a3, a4, a5);
+  rflags = lambchop_syscall(&idret, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
   set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
   set_rax(cpu, idret);
   DEBUG("SYSCALL PASSTHROUGH: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
