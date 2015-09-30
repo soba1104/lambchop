@@ -84,6 +84,21 @@ static void syscall_callback_set_cthread_self(const syscall_entry *syscall, void
 }
 
 static void syscall_callback_passthrough(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  uint64_t id = convert_syscall_id(syscall);
+  uint64_t a0 = get_rdi(cpu);
+  uint64_t a1 = get_rsi(cpu);
+  uint64_t a2 = get_rdx(cpu);
+  uint64_t a3 = get_r10(cpu);
+  uint64_t a4 = get_r8(cpu);
+  uint64_t a5 = get_r9(cpu);
+  uint64_t rflags, idret;
+
+  idret = id;
+  rflags = lambchop_syscall(&idret, a0, a1, a2, a3, a4, a5);
+  set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
+  set_rax(cpu, idret);
+  DEBUG("SYSCALL PASSTHROUGH: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
+        syscall->name, id, a0, a1, a2, a3, a4, a5, idret, rflags);
 }
 
 static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
@@ -111,13 +126,7 @@ static const syscall_entry mach_syscalls[] = {
 static void handle_syscall(void *cpu, lambchop_logger *logger) {
   uint64_t rax = get_rax(cpu);
   uint64_t id = rax;
-  uint64_t a0 = get_rdi(cpu);
-  uint64_t a1 = get_rsi(cpu);
-  uint64_t a2 = get_rdx(cpu);
-  uint64_t a3 = get_r10(cpu);
-  uint64_t a4 = get_r8(cpu);
-  uint64_t a5 = get_r9(cpu);
-  uint64_t rflags, idx = id & ~SYSCALL_CLASS_MASK;
+  uint64_t idx = id & ~SYSCALL_CLASS_MASK;
   const syscall_entry *syscall = NULL;
   const char *name = NULL;
   bool trapped = false;
@@ -156,14 +165,8 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
   if (!trapped) {
     assert(syscall);
     assert(syscall->func);
-    /*syscall->func(syscall, cpu, logger);*/
-    rax = convert_syscall_id(syscall);
-    rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4, a5);
-    set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
-    set_rax(cpu, rax);
+    syscall->func(syscall, cpu, logger);
   }
-  DEBUG("SYSCALL END: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
-        name, id, a0, a1, a2, a3, a4, a5, rax, rflags);
 }
 
 uint64_t lambchop_vm_call(lambchop_vm_t *vm, void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
