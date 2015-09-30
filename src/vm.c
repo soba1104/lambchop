@@ -39,24 +39,26 @@ static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logg
 }
 
 struct __syscall_entry;
-typedef void (*syscall_callback)(const struct __syscall_entry *syscall, void *cpu);
+typedef void (*syscall_callback)(const struct __syscall_entry *syscall, void *cpu, lambchop_logger *logger);
 
 typedef struct __syscall_entry {
   const char *name;
   syscall_callback func;
 } syscall_entry;
 
-static void syscall_callback_set_cthread_self(const syscall_entry *syscall, void *cpu) {
+static void syscall_callback_set_cthread_self(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t self = get_rdi(cpu);
+  DEBUG("SYSCALL: set_cthread_self(0x%llx)\n", self);
   set_gs_base(cpu, self);
   clear_cf(cpu);
   set_rax(cpu, 0x0f);
 }
 
-static void syscall_callback_passthrough(const syscall_entry *syscall, void *cpu) {
+static void syscall_callback_passthrough(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
 }
 
-static void syscall_callback_todo(const syscall_entry *syscall, void *cpu) {
+static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  DEBUG("SYSCALL TODO: %s\n", syscall->name);
   assert(false);
 }
 
@@ -121,17 +123,16 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
       break;
     case SYSCALL_CLASS_MDEP:
       assert(idx == 0x03); // set cthread self
-      syscall_callback_set_cthread_self(NULL, cpu); // FIXME
+      syscall_callback_set_cthread_self(NULL, cpu, logger); // FIXME
       trapped = true;
       break;
     default:
       assert(false);
   }
-  DEBUG("SYSCALL START: %s\n", name);
   if (!trapped) {
     assert(syscall);
     assert(syscall->func);
-    syscall->func(syscall, cpu);
+    syscall->func(syscall, cpu, logger);
     rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4, a5);
     set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
     set_rax(cpu, rax);
