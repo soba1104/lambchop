@@ -49,6 +49,7 @@ typedef void (*syscall_callback)(const struct __syscall_entry *syscall, void *cp
 typedef struct __syscall_entry {
   const char *name;
   syscall_callback func;
+  uint64_t class;
 } syscall_entry;
 
 static uint64_t convert_syscall_id(uint64_t id) {
@@ -88,17 +89,17 @@ static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambc
   assert(false);
 }
 
-#define UNIX_SYSCALL(name, id, func) {#name, syscall_callback_##func},
-#define UNIX_OLD_SYSCALL(name, id) {#name, syscall_callback_todo},
-#define UNIX_ERROR_SYSCALL(id) {NULL, NULL},
+#define UNIX_SYSCALL(name, id, func) {#name, syscall_callback_##func, SYSCALL_CLASS_UNIX},
+#define UNIX_OLD_SYSCALL(name, id) {#name, syscall_callback_todo, SYSCALL_CLASS_UNIX},
+#define UNIX_ERROR_SYSCALL(id) {NULL, NULL, SYSCALL_CLASS_UNIX},
 #define UNIX_SYSCALL_NUM ((sizeof(unix_syscalls) / sizeof(syscall_entry)) - 1)
 static const syscall_entry unix_syscalls[] = {
 #include "unix_syscalls.h"
   {NULL, NULL}
 };
 
-#define MACH_SYSCALL(name, argc, id, func) {#name, syscall_callback_##func},
-#define MACH_ERROR_SYSCALL(id) {NULL, NULL},
+#define MACH_SYSCALL(name, argc, id, func) {#name, syscall_callback_##func, SYSCALL_CLASS_MACH},
+#define MACH_ERROR_SYSCALL(id) {NULL, NULL, SYSCALL_CLASS_MACH},
 #define MACH_SYSCALL_NUM ((sizeof(mach_syscalls) / sizeof(syscall_entry)) - 1)
 static const syscall_entry mach_syscalls[] = {
 #include "mach_syscalls.h"
