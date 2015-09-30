@@ -38,26 +38,27 @@ static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logg
       );
 }
 
-static void syscall_callback_set_cthread_self(uint64_t id, void *cpu, int argc) {
+struct __syscall_entry;
+typedef void (*syscall_callback)(const struct __syscall_entry *syscall, void *cpu);
+
+typedef struct __syscall_entry {
+  const char *name;
+  syscall_callback func;
+} syscall_entry;
+
+static void syscall_callback_set_cthread_self(const syscall_entry *syscall, void *cpu) {
   uint64_t self = get_rdi(cpu);
   set_gs_base(cpu, self);
   clear_cf(cpu);
   set_rax(cpu, 0x0f);
 }
 
-static void syscall_callback_passthrough(uint64_t id, void *cpu, int argc) {
+static void syscall_callback_passthrough(const syscall_entry *syscall, void *cpu) {
 }
 
-static void syscall_callback_todo(uint64_t id, void *cpu, int argc) {
+static void syscall_callback_todo(const syscall_entry *syscall, void *cpu) {
   assert(false);
 }
-
-typedef void (*syscall_callback)(uint64_t id, void *cpu, int argc);
-
-typedef struct {
-  const char *name;
-  syscall_callback func;
-} syscall_entry;
 
 #define SYSCALL_CLASS_MASK (0xff << 24)
 #define SYSCALL_CLASS_MACH (0x01 << 24)
@@ -120,7 +121,7 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
       break;
     case SYSCALL_CLASS_MDEP:
       assert(idx == 0x03); // set cthread self
-      syscall_callback_set_cthread_self(rax, cpu, 1);
+      syscall_callback_set_cthread_self(NULL, cpu); // FIXME
       trapped = true;
       break;
     default:
@@ -130,7 +131,7 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
   if (!trapped) {
     assert(syscall);
     assert(syscall->func);
-    syscall->func(rax, cpu, -1);
+    syscall->func(syscall, cpu);
     rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4, a5);
     set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
     set_rax(cpu, rax);
