@@ -47,24 +47,26 @@ struct __syscall_entry;
 typedef void (*syscall_callback)(const struct __syscall_entry *syscall, void *cpu, lambchop_logger *logger);
 
 typedef struct __syscall_entry {
+  uint64_t id;
+  uint64_t class;
   const char *name;
   syscall_callback func;
-  uint64_t class;
 } syscall_entry;
 
-static uint64_t convert_syscall_id(uint64_t id) {
-  switch (id & SYSCALL_CLASS_MASK) {
+static uint64_t convert_syscall_id(const syscall_entry *syscall) {
+  uint64_t id = syscall->id;
+  switch (syscall->class) {
     case SYSCALL_CLASS_MACH:
 #ifdef __ARM__
-      return (id & ~SYSCALL_CLASS_MASK) - 1;
+      return id - 1;
 #else
-      return id;
+      return SYSCALL_CLASS_MACH | id;
 #endif
     case SYSCALL_CLASS_UNIX:
 #ifdef __ARM__
-      return (id & ~SYSCALL_CLASS_MASK);
-#else
       return id;
+#else
+      return SYSCALL_CLASS_UNIX | id;
 #endif
     case SYSCALL_CLASS_MDEP:
       assert(false); // TODO
@@ -89,21 +91,21 @@ static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambc
   assert(false);
 }
 
-#define UNIX_SYSCALL(name, id, func) {#name, syscall_callback_##func, SYSCALL_CLASS_UNIX},
-#define UNIX_OLD_SYSCALL(name, id) {#name, syscall_callback_todo, SYSCALL_CLASS_UNIX},
-#define UNIX_ERROR_SYSCALL(id) {NULL, NULL, SYSCALL_CLASS_UNIX},
+#define UNIX_SYSCALL(name, id, func) {id, SYSCALL_CLASS_UNIX, #name, syscall_callback_##func},
+#define UNIX_OLD_SYSCALL(name, id) {id, SYSCALL_CLASS_UNIX, #name, syscall_callback_todo},
+#define UNIX_ERROR_SYSCALL(id) {id, SYSCALL_CLASS_UNIX, NULL, NULL},
 #define UNIX_SYSCALL_NUM ((sizeof(unix_syscalls) / sizeof(syscall_entry)) - 1)
 static const syscall_entry unix_syscalls[] = {
 #include "unix_syscalls.h"
-  {NULL, NULL}
+  {-1, SYSCALL_CLASS_UNIX, NULL, NULL}
 };
 
-#define MACH_SYSCALL(name, argc, id, func) {#name, syscall_callback_##func, SYSCALL_CLASS_MACH},
-#define MACH_ERROR_SYSCALL(id) {NULL, NULL, SYSCALL_CLASS_MACH},
+#define MACH_SYSCALL(name, argc, id, func) {id, SYSCALL_CLASS_MACH, #name, syscall_callback_##func},
+#define MACH_ERROR_SYSCALL(id) {id, SYSCALL_CLASS_MACH, NULL, NULL},
 #define MACH_SYSCALL_NUM ((sizeof(mach_syscalls) / sizeof(syscall_entry)) - 1)
 static const syscall_entry mach_syscalls[] = {
 #include "mach_syscalls.h"
-  {NULL, NULL}
+  {-1, SYSCALL_CLASS_MACH, NULL, NULL}
 };
 
 static void handle_syscall(void *cpu, lambchop_logger *logger) {
@@ -155,7 +157,7 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
     assert(syscall);
     assert(syscall->func);
     /*syscall->func(syscall, cpu, logger);*/
-    rax = convert_syscall_id(id);
+    rax = convert_syscall_id(syscall);
     rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4, a5);
     set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
     set_rax(cpu, rax);
