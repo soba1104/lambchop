@@ -38,7 +38,17 @@ static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logg
       );
 }
 
-void syscall_callback_todo(uint64_t id, int argc, uint64_t *argv) {
+static void syscall_callback_set_cthread_self(uint64_t id, void *cpu, int argc) {
+  uint64_t self = get_rdi(cpu);
+  set_gs_base(cpu, self);
+  clear_cf(cpu);
+  set_rax(cpu, 0x0f);
+}
+
+static void syscall_callback_passthrough(uint64_t id, void *cpu, int argc) {
+}
+
+static void syscall_callback_todo(uint64_t id, void *cpu, int argc) {
   assert(false);
 }
 
