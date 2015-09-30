@@ -85,7 +85,7 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
   uint64_t a4 = get_r8(cpu);
   uint64_t a5 = get_r9(cpu);
   uint64_t rflags, idx = id & ~SYSCALL_CLASS_MASK;
-  const syscall_entry *syscall;
+  const syscall_entry *syscall = NULL;
   const char *name = NULL;
   bool trapped = false;
 
@@ -121,6 +121,8 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
       assert(false);
   }
   if (!trapped) {
+    assert(syscall);
+    assert(syscall->func);
     rflags = lambchop_syscall(&rax, a0, a1, a2, a3, a4, a5);
     set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
   }
