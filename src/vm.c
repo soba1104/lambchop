@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <fcntl.h>
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
   static int count = 0;
@@ -99,6 +100,17 @@ static void syscall_callback_passthrough(const syscall_entry *syscall, void *cpu
   set_rax(cpu, idret);
   DEBUG("SYSCALL PASSTHROUGH: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
         syscall->name, id, a0, a1, a2, a3, a4, a5, idret, rflags);
+}
+
+static void syscall_callback_open(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  uint64_t path = get_rdi(cpu);
+  uint64_t flags = get_rsi(cpu);
+  // TODO アドレス変換をかませる場合は path の取得を cpu を通して行う。
+  DEBUG("SYSCALL: open(%s, 0x%llx)\n", (char*)path, flags);
+  if ((flags & O_ACCMODE) == O_RDONLY) {
+    // TODO path の書き換え
+  }
+  syscall_callback_passthrough(syscall, cpu, logger);
 }
 
 static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
