@@ -28,6 +28,8 @@ retq
 .text
 .globl _lambchop_syscall
 _lambchop_syscall:
+pushq %rbp
+movq %rsp, %rbp
 pushq %rdi
 movq (%rdi), %rax
 movq %rsi, %rdi
@@ -35,9 +37,10 @@ movq %rdx, %rsi
 movq %rcx, %rdx
 movq %r8, %rcx
 movq %r9, %r8
-movq 0x10(%rsp), %r9
+movq 0x10(%rbp), %r9
 call _lambchop_syscall_trap
 popq %rdi
+popq %rbp
 movq %rax, (%rdi)
 pushfq
 popq %rax
