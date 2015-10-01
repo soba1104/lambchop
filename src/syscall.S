@@ -22,31 +22,16 @@ ret
 .text
 .globl _lambchop_syscall
 _lambchop_syscall:
-push %rbp
-movq %rsp, %rbp
-subq $0x30, %rsp
-movq %rdi, 0x28(%rsp)
-movq %rbx, 0x20(%rsp)
+pushq %rdi
 movq (%rdi), %rax
 movq %rsi, %rdi
 movq %rdx, %rsi
 movq %rcx, %rdx
 movq %r8, %r10
 movq %r9, %r8
-movq 0x10(%rbp), %r9
-movq 0x18(%rbp), %rbx
-movq %rbx, 0x00(%rsp)
-movq 0x20(%rbp), %rbx
-movq %rbx, 0x08(%rsp)
-movq 0x28(%rbp), %rbx
-movq %rbx, 0x10(%rsp)
-movq 0x30(%rbp), %rbx
-movq %rbx, 0x18(%rsp)
+movq 0x10(%rsp), %r9
 syscall
-movq 0x20(%rsp), %rbx
-movq 0x28(%rsp), %rdi
-addq $0x30, %rsp
-popq %rbp
+popq %rdi
 movq %rax, (%rdi)
 pushfq
 popq %rax

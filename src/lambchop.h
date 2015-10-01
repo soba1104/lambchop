@@ -45,17 +45,7 @@ void lambchop_vm_free(lambchop_vm_t *vm);
 int lambchop_vm_run(lambchop_vm_t *vm, void *mainfunc, lambchop_logger *logger);
 uint64_t lambchop_vm_call(lambchop_vm_t *vm, void *func, int argc, uint64_t *argv, lambchop_logger *logger);
 
-uint64_t lambchop_syscall(uint64_t *rax,
-                          uint64_t a0,
-                          uint64_t a1,
-                          uint64_t a2,
-                          uint64_t a3,
-                          uint64_t a4,
-                          uint64_t a5,
-                          uint64_t a6,
-                          uint64_t a7,
-                          uint64_t a8,
-                          uint64_t a9);
+uint64_t lambchop_syscall(uint64_t *rax, uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5);
 
 void lambchop_trace(void);
 
