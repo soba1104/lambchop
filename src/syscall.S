@@ -30,7 +30,8 @@ retq
 _lambchop_syscall:
 pushq %rbp
 movq %rsp, %rbp
-pushq %rdi
+subq $0x08, %rsp
+movq %rdi, 0x00(%rsp)
 movq (%rdi), %rax
 movq %rsi, %rdi
 movq %rdx, %rsi
