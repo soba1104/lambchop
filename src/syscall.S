@@ -40,7 +40,8 @@ movq %r8, %rcx
 movq %r9, %r8
 movq 0x10(%rbp), %r9
 call _lambchop_syscall_trap
-popq %rdi
+movq 0x00(%rsp), %rdi
+movq %rbp, %rsp
 popq %rbp
 movq %rax, (%rdi)
 pushfq
