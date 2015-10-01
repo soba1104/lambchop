@@ -39,6 +39,14 @@ movq %rcx, %rdx
 movq %r8, %rcx
 movq %r9, %r8
 movq 0x10(%rbp), %r9
+movq 0x18(%rbp), %r10
+movq %r10, 0x00(%rsp)
+movq 0x20(%rbp), %r10
+movq %r10, 0x08(%rsp)
+movq 0x28(%rbp), %r10
+movq %r10, 0x10(%rsp)
+movq 0x30(%rbp), %r10
+movq %r10, 0x18(%rsp)
 call _lambchop_syscall_trap
 movq 0x48(%rsp), %rdi
 movq %rbp, %rsp
