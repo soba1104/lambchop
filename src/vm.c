@@ -5,9 +5,11 @@
 #define DEBUG(...) lambchop_debug(logger, __VA_ARGS__)
 
 #include <x86i.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <signal.h>
 #include <fcntl.h>
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
@@ -132,6 +134,11 @@ static void syscall_callback_mmap(const syscall_entry *syscall, void *cpu, lambc
   syscall_callback_passthrough(syscall, cpu, logger);
 }
 
+static void sigaction_handler(int num, siginfo_t *info, void *context) {
+  fprintf(stderr, "--------- SIGACTION HANDLER %d ---------\n", num);
+  assert(false);
+}
+
 static void syscall_callback_sigaction(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t signum = get_rdi(cpu);
   uint64_t actp = get_rsi(cpu);
@@ -141,7 +148,22 @@ static void syscall_callback_sigaction(const syscall_entry *syscall, void *cpu, 
   assert(act->sa_flags == 0x03); // SA_ONSTACK & SA_RESTART
   DEBUG("SYSCALL: sigaction(%llu, {0x%llx, 0x%x, 0x%x}, 0x%llx)\n",
         signum, act->sa_handler, act->sa_mask, act->sa_flags, oldact);
+#if 0
   syscall_callback_passthrough(syscall, cpu, logger);
+#else
+  {
+    struct sigaction a;
+    int ret;
+    a.sa_flags = SA_SIGINFO;
+    a.sa_mask = act->sa_mask;
+    a.sa_sigaction = sigaction_handler;
+    // TODO lambchop_syscall で直接システムコールを呼び出す
+    ret = sigaction(signum, &a, oldact);
+    assert(ret >= 0);
+    clear_cf(cpu);
+    set_rax(cpu, 0);
+  }
+#endif
 }
 
 static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
