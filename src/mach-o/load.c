@@ -547,7 +547,9 @@ out:
   macho_loader_free(dyld_loader);
   macho_loader_free(app_loader);
   if (args) {
-    free(args);
+    // 環境変数へのポインタなどが dyld を使ったリンク時に参照されるので、
+    // プログラムの実行が終了するまで解放してはいけない。
+    /*free(args);*/
   }
 
   return mainfunc;
