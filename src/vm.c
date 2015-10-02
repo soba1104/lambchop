@@ -12,7 +12,9 @@
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
   static int count = 0;
-  if ((count++) <= 11000000) {
+  if ((count++) <= 10450000) {
+  /*if ((count++) <= 10401000) {*/
+  /*if ((count++) <= 10200000 || count >= 10265000) {*/
   /*if ((count++) <= 7500000) {*/
     return;
   }
@@ -115,6 +117,18 @@ static void syscall_callback_open(const syscall_entry *syscall, void *cpu, lambc
   if ((flags & O_ACCMODE) == O_RDONLY) {
     // TODO path の書き換え
   }
+  syscall_callback_passthrough(syscall, cpu, logger);
+}
+
+static void syscall_callback_mmap(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  uint64_t addr = get_rdi(cpu);
+  uint64_t len = get_rsi(cpu);
+  uint64_t prot = get_rdx(cpu);
+  uint64_t flags = get_r10(cpu);
+  uint64_t fd = get_r8(cpu);
+  uint64_t offset = get_r9(cpu);
+  DEBUG("SYSCALL: mmap(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx)\n",
+        addr, len, prot, flags, fd, offset);
   syscall_callback_passthrough(syscall, cpu, logger);
 }
 
