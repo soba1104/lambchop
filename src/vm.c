@@ -132,6 +132,18 @@ static void syscall_callback_mmap(const syscall_entry *syscall, void *cpu, lambc
   syscall_callback_passthrough(syscall, cpu, logger);
 }
 
+static void syscall_callback_sigaction(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  uint64_t signum = get_rdi(cpu);
+  uint64_t actp = get_rsi(cpu);
+  uint64_t oldactp = get_rdx(cpu);
+  struct sigaction *act = (struct sigaction*)actp;
+  struct sigaction *oldact = (struct sigaction*)oldactp;
+  assert(act->sa_flags == 0x03); // SA_ONSTACK & SA_RESTART
+  DEBUG("SYSCALL: sigaction(%llu, {0x%llx, 0x%x, 0x%x}, 0x%llx)\n",
+        signum, act->sa_handler, act->sa_mask, act->sa_flags, oldact);
+  syscall_callback_passthrough(syscall, cpu, logger);
+}
+
 static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   DEBUG("SYSCALL TODO: %s\n", syscall->name);
   assert(false);
