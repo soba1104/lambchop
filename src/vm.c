@@ -224,26 +224,28 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
 #define PTHREAD_START_QOSCLASS  0x08000000
   // PTHREAD_START_QOSCLASS はあんまり気にしなくてよさそう
   // PTHREAD_START_SETSCHED と PTHREAD_START_DETACHED は意味がよくわかっていないので非対応。
-  // PTHREAD_START_CUSTOM だと第四引数の pthread の扱いが変わるんだけどそれに未対応
+  // PTHREAD_START_CUSTOM だと pthread や stack の扱いが変わるんだけどそれに未対応
   assert(!(flags & PTHREAD_START_CUSTOM));
   assert(!(flags & PTHREAD_START_SETSCHED));
   assert(!(flags & PTHREAD_START_DETACHED));
 
   // pthread っていう引数の意味はよくわかってないけど、
-  // PTHREAD_START_CUSTOM が有効化されている場合の処理を見たところ、
+  // PTHREAD_START_CUSTOM が無効化されている場合の処理を見たところ、
   // stack と guard 領域の隣を指すようになっていたので、
   // TLS のアドレスを指しているもののような気がする。
-  // その認識であっているならば、ここで値を書き換えないと、
+  //
+  // その認識であっているならば、PTHREAD_START_CUSTOM が有効の場合はここで値を書き換えないと、
   // lambchop の TLS と動作させたいアプリケーションの TLS が衝突してしまうはず。
-  // PTHREAD_START_CUSTOM を指定した場合、TLS っぽい値は libpthread 側で割り当ててくれるので、
-  // flags に PTHREAD_START_CUSTOM を立ててるだけでよさそう。
+  // PTHREAD_START_CUSTOM が無効だった場合、TLS っぽい値は libpthread 側で割り当ててくれるので、
+  // flags から PTHREAD_START_CUSTOM をクリアするだけでよさそう。
+  //
   // 実装を見た感じ、PTHREAD_START_CUSTOM の場合、ここで渡した pthread という値は無視されるっぽいので
   // 何を渡してもいいはずなんだけど、もし問題があった時に分かりやすいように 0 を渡しておく。
   set_rdi(cpu, (uint64_t)bsdthread_handler);
   set_rsi(cpu, (uint64_t)arg);
   set_rdx(cpu, 0x4000UL); // TODO 定数に置き換える
   set_r10(cpu, 0);
-  set_r8(cpu, flags | PTHREAD_START_CUSTOM);
+  set_r8(cpu, flags & ~PTHREAD_START_CUSTOM);
   syscall_callback_passthrough(syscall, cpu, logger);
   set_rdi(cpu, func);
   set_rsi(cpu, func_arg);
