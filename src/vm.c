@@ -166,8 +166,24 @@ static void syscall_callback_sigaction(const syscall_entry *syscall, void *cpu, 
 #endif
 }
 
-static void bsdthread_handler(void *arg) {
+typedef struct {
+  uint64_t orig_func;
+  uint64_t orig_func_arg;
+  uint64_t orig_stack;
+  uint64_t orig_pthread;
+  uint32_t orig_flags;
+} bsdthread_arg;
+
+static void bsdthread_handler(bsdthread_arg *arg) {
+  uint64_t orig_func = arg->orig_func;
+  uint64_t orig_func_arg = arg->orig_func_arg;
+  uint64_t orig_stack = arg->orig_stack;
+  uint64_t *stack = malloc(orig_stack);
   fprintf(stderr, "------------- bsdthread handler --------------\n");
+  fprintf(stderr, "orig_func = 0x%llx, orig_func_arg = 0x%llx\n", orig_func, orig_func_arg);
+  assert(stack);
+  free(arg);
+  free(stack);
   assert(false);
 }
 
@@ -176,13 +192,27 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   uint64_t func_arg = get_rsi(cpu);
   uint64_t stack = get_rdx(cpu); // stack size
   uint64_t pthread = get_r10(cpu); // ???
-  uint64_t flags = (uint32_t)get_r8(cpu);
-  // TODO 置き換える
+  uint32_t flags = (uint32_t)get_r8(cpu);
+  bsdthread_arg *arg = malloc(sizeof(bsdthread_arg)); // 解放は生成したスレッドで行う。
+
   DEBUG("SYSCALL: bsdthread_create(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%x)\n",
         func, func_arg, stack, pthread, flags);
+  assert(arg);
+  assert(pthread == 0);
+  arg->orig_func = func;
+  arg->orig_func_arg = func_arg;
+  arg->orig_stack = stack;
+  arg->orig_pthread = pthread;
+  arg->orig_flags = flags;
+
   set_rdi(cpu, (uint64_t)bsdthread_handler);
+  set_rsi(cpu, (uint64_t)arg);
+  set_rdx(cpu, 0x4000UL); // TODO 定数に置き換える
+  // TODO flags と pthread の扱いを考える
   syscall_callback_passthrough(syscall, cpu, logger);
   set_rdi(cpu, func);
+  set_rsi(cpu, func_arg);
+  set_rdx(cpu, stack);
 }
 
 static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
