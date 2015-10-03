@@ -206,6 +206,8 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   argv[3] = orig_func_arg;
   argv[4] = arg->orig_stack;
   argv[5] = arg->orig_flags;
+  // libpthread のほうで set cthread self を呼んでくれるようなので、
+  // ここで gs を上書きする必要は無い。
   lambchop_vm_call(vm, LAMBCHOP_VM_PTHREAD_STACK_ADJUST, (void*)bsdthread_start, 6, argv, logger);
   lambchop_vm_free(vm);
   free(arg->tls);
