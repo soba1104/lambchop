@@ -282,8 +282,9 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
     // bsdthread_create は返り値に pthread_self の値(兼 TLS 領域)を返すので差し替える。
     assert(get_rax(cpu) >= 0);
     set_rax(cpu, (uint64_t)tls);
-    // TODO ここから抜けて pthread_create に戻って処理を進めるまでの間に
-    // 生成したスレッドが動き出してまずいことにならないかチェック。
+    // ここから抜けて pthread_create に戻って処理を進めるまでの間に
+    // 生成したスレッドが動き出しても問題なさそうだった。
+    // 排他制御を libpthread がかけていた。
   }
 }
 
