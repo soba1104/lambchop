@@ -17,7 +17,7 @@ int main(int argc, char **argv, char **envp, char **apple) {
 
 int i;
 for (i = 0; i < 0x20; i++) {
-  if (i != SIGINT) {
+  if (i != SIGINT && i != SIGSEGV) {
     signal(i, signal_handler);
   }
 }

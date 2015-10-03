@@ -20,7 +20,8 @@ static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logg
   /*if ((count++) <= 7500000) {*/
     return;
   }
-  DEBUG("0x%llx,%s,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx\n",
+  DEBUG("(0x%llx)0x%llx,%s,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx,0x%llx\n",
+      cpu,
       rip,
       get_opcode_name(insn),
       get_rax(cpu),
@@ -172,19 +173,23 @@ typedef struct {
   uint64_t orig_stack;
   uint64_t orig_pthread;
   uint32_t orig_flags;
+  lambchop_logger *logger;
 } bsdthread_arg;
 
 static void bsdthread_handler(bsdthread_arg *arg) {
   uint64_t orig_func = arg->orig_func;
   uint64_t orig_func_arg = arg->orig_func_arg;
-  uint64_t orig_stack = arg->orig_stack;
-  uint64_t *stack = malloc(orig_stack);
-  fprintf(stderr, "------------- bsdthread handler --------------\n");
+  uint64_t argv[1] = { orig_func_arg };
+  lambchop_logger *logger = arg->logger;
+  lambchop_vm_t *vm = lambchop_vm_alloc(); // TODO stack size の設定
+
+  fprintf(stderr, "------------- bsdthread handler start --------------\n");
   fprintf(stderr, "orig_func = 0x%llx, orig_func_arg = 0x%llx\n", orig_func, orig_func_arg);
-  assert(stack);
+  assert(vm);
+  lambchop_vm_call(vm, (void*)orig_func, 1, argv, logger);
+  lambchop_vm_free(vm);
   free(arg);
-  free(stack);
-  assert(false);
+  fprintf(stderr, "------------- bsdthread handler end --------------\n");
 }
 
 static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
@@ -204,6 +209,7 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   arg->orig_stack = stack;
   arg->orig_pthread = pthread;
   arg->orig_flags = flags;
+  arg->logger = logger;
 
   set_rdi(cpu, (uint64_t)bsdthread_handler);
   set_rsi(cpu, (uint64_t)arg);
