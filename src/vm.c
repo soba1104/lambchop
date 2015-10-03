@@ -221,6 +221,22 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   set_rdx(cpu, stack);
 }
 
+static void syscall_callback_bsdthread_register(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  uint64_t threadstart = get_rdi(cpu);
+  uint64_t wqthread = get_rsi(cpu);
+  int pthsize = (int)get_rdx(cpu);
+  uint64_t pthread_init_data = get_r10(cpu);
+  uint64_t targetconc_ptr = get_r8(cpu);
+  uint64_t dispatchqueue_offset = get_r9(cpu);
+
+  DEBUG("SYSCALL: bsdthread_register(0x%llx, 0x%llx, 0x%x, 0x%llx, 0x%llx, 0x%llx)\n",
+        threadstart, wqthread, pthsize, pthread_init_data, targetconc_ptr, dispatchqueue_offset);
+  // 2度目以降の register は無視されるので passthrough する意味が無い。
+  /*syscall_callback_passthrough(syscall, cpu, logger);*/
+  clear_cf(cpu);
+  set_rax(cpu, 0);
+}
+
 static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   DEBUG("SYSCALL TODO: %s\n", syscall->name);
   assert(false);
