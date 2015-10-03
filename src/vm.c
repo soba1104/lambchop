@@ -205,7 +205,7 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   argv[3] = orig_func_arg;
   argv[4] = arg->orig_stack;
   argv[5] = arg->orig_flags;
-  lambchop_vm_call(vm, (void*)bsdthread_start, 6, argv, logger);
+  lambchop_vm_call(vm, LAMBCHOP_VM_PTHREAD_STACK_ADJUST, (void*)bsdthread_start, 6, argv, logger);
   lambchop_vm_free(vm);
   free(arg);
   DEBUG("------------- bsdthread handler end --------------\n");
@@ -346,7 +346,7 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
   }
 }
 
-uint64_t lambchop_vm_call(lambchop_vm_t *vm, void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
+uint64_t lambchop_vm_call(lambchop_vm_t *vm, uint64_t stack_adjust, void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
   uint8_t *stack;
   uint16_t opcode;
   void *cpu = vm->cpu, *insn = vm->insn;
@@ -357,7 +357,7 @@ uint64_t lambchop_vm_call(lambchop_vm_t *vm, void *func, int argc, uint64_t *arg
   r = posix_memalign((void**)&stack, 0x1000, 0x1000000);
   assert(r >= 0);
   memset(stack, 0, 0x1000000);
-  set_stack(cpu, stack + 0x1000000 - 8);
+  set_stack(cpu, stack + 0x1000000 - stack_adjust);
   set_rip(cpu, (uint64_t)func);
   if (argc > 0) set_rdi(cpu, argv[0]);
   if (argc > 1) set_rsi(cpu, argv[1]);
@@ -396,7 +396,7 @@ uint64_t lambchop_vm_call(lambchop_vm_t *vm, void *func, int argc, uint64_t *arg
 int lambchop_vm_run(lambchop_vm_t *vm, void *mainfunc, lambchop_logger *logger) {
   // TODO 引数を扱えるようにする。
   /*return ((int(*)(void))mainfunc)();*/
-  return lambchop_vm_call(vm, mainfunc, 0, NULL, logger);
+  return lambchop_vm_call(vm, LAMBCHOP_VM_DEFAULT_STACK_ADJUST, mainfunc, 0, NULL, logger);
 }
 
 lambchop_vm_t *lambchop_vm_alloc(void) {

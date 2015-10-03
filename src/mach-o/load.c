@@ -509,7 +509,7 @@ static void *macho_loader_call_dyld(lambchop_vm_t *vm, macho_loader *dyld_loader
     dyldargv[3] = (uint64_t)dyld_loader->slide;
     dyldargv[4] = (uint64_t)dyld_loader->hdrvm;
     dyldargv[5] = (uint64_t)&glue;
-    return (void*)lambchop_vm_call(vm, dyldfunc, 6, dyldargv, logger);
+    return (void*)lambchop_vm_call(vm, LAMBCHOP_VM_DEFAULT_STACK_ADJUST, dyldfunc, 6, dyldargv, logger);
   }
 #else
   lambchop_trace();

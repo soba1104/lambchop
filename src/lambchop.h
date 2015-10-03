@@ -43,7 +43,10 @@ bool lambchop_file_read_all(const char *path, lambchop_logger *logger, char **bu
 lambchop_vm_t *lambchop_vm_alloc(void);
 void lambchop_vm_free(lambchop_vm_t *vm);
 int lambchop_vm_run(lambchop_vm_t *vm, void *mainfunc, lambchop_logger *logger);
-uint64_t lambchop_vm_call(lambchop_vm_t *vm, void *func, int argc, uint64_t *argv, lambchop_logger *logger);
+
+#define LAMBCHOP_VM_DEFAULT_STACK_ADJUST 0x08
+#define LAMBCHOP_VM_PTHREAD_STACK_ADJUST 0x00
+uint64_t lambchop_vm_call(lambchop_vm_t *vm, uint64_t stack_adjust, void *func, int argc, uint64_t *argv, lambchop_logger *logger);
 
 uint64_t lambchop_syscall(uint64_t *rax,
                           uint64_t a0,
