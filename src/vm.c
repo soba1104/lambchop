@@ -166,6 +166,11 @@ static void syscall_callback_sigaction(const syscall_entry *syscall, void *cpu, 
 #endif
 }
 
+static void bsdthread_handler(void *arg) {
+  fprintf(stderr, "------------- bsdthread handler --------------\n");
+  assert(false);
+}
+
 static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t func = get_rdi(cpu);
   uint64_t func_arg = get_rsi(cpu);
@@ -175,7 +180,9 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   // TODO 置き換える
   DEBUG("SYSCALL: bsdthread_create(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%x)\n",
         func, func_arg, stack, pthread, flags);
+  set_rdi(cpu, (uint64_t)bsdthread_handler);
   syscall_callback_passthrough(syscall, cpu, logger);
+  set_rdi(cpu, func);
 }
 
 static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {

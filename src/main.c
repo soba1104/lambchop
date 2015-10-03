@@ -2,6 +2,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
+
+void signal_handler(int num) {
+  fprintf(stderr, "========================== SIGNAL %d ===========================\n", num);
+}
 
 int main(int argc, char **argv, char **envp, char **apple) {
   lambchop_logger logger;
@@ -9,6 +14,13 @@ int main(int argc, char **argv, char **envp, char **apple) {
   char *app_path, *dyld_path;
   void *mainfunc;
   int ret = 0;
+
+int i;
+for (i = 0; i < 0x20; i++) {
+  if (i != SIGINT) {
+    signal(i, signal_handler);
+  }
+}
 
   if (argc < 3) {
     fprintf(stderr, "usage: lambchop executable_path dyld_path\n");
