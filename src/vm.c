@@ -183,6 +183,10 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   lambchop_logger *logger = arg->logger;
   lambchop_vm_t *vm = lambchop_vm_alloc(); // TODO stack size の設定
 
+  // PTHREAD_START_CUSTOM が無効化だった場合は以下のとおり。
+  // -: stack はこちら側で割り当ててよい。
+  // -: TLS はこちら側で割り当ててよい。
+  // stack にスタック領域を、pthread に TLS 領域を入れて thread_start を呼び出す。
   fprintf(stderr, "------------- bsdthread handler start --------------\n");
   fprintf(stderr, "orig_func = 0x%llx, orig_func_arg = 0x%llx\n", orig_func, orig_func_arg);
   assert(vm);
