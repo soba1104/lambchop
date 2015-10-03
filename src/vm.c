@@ -192,6 +192,8 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   fprintf(stderr, "------------- bsdthread handler end --------------\n");
 }
 
+static uint64_t bsdthread_start;
+
 static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t func = get_rdi(cpu);
   uint64_t func_arg = get_rsi(cpu);
@@ -204,6 +206,7 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
         func, func_arg, stack, pthread, flags);
   assert(arg);
   assert(pthread == 0);
+  assert(bsdthread_start);
   arg->orig_func = func;
   arg->orig_func_arg = func_arg;
   arg->orig_stack = stack;
@@ -229,6 +232,8 @@ static void syscall_callback_bsdthread_register(const syscall_entry *syscall, vo
   uint64_t targetconc_ptr = get_r8(cpu);
   uint64_t dispatchqueue_offset = get_r9(cpu);
 
+  assert(!bsdthread_start);
+  bsdthread_start = threadstart;
   DEBUG("SYSCALL: bsdthread_register(0x%llx, 0x%llx, 0x%x, 0x%llx, 0x%llx, 0x%llx)\n",
         threadstart, wqthread, pthsize, pthread_init_data, targetconc_ptr, dispatchqueue_offset);
   // 2度目以降の register は無視されるので passthrough する意味が無い。
