@@ -11,6 +11,7 @@
 #include <string.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
   static int count = 0;
@@ -176,10 +177,13 @@ typedef struct {
   lambchop_logger *logger;
 } bsdthread_arg;
 
+static uint64_t bsdthread_start;
+
 static void bsdthread_handler(bsdthread_arg *arg) {
   uint64_t orig_func = arg->orig_func;
   uint64_t orig_func_arg = arg->orig_func_arg;
-  uint64_t argv[1] = { orig_func_arg };
+  uint64_t argv[6];
+  pthread_t self = pthread_self();
   lambchop_logger *logger = arg->logger;
   lambchop_vm_t *vm = lambchop_vm_alloc(); // TODO stack size の設定
 
@@ -187,16 +191,25 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   // -: stack はこちら側で割り当ててよい。
   // -: TLS はこちら側で割り当ててよい。
   // stack にスタック領域を、pthread に TLS 領域を入れて thread_start を呼び出す。
-  fprintf(stderr, "------------- bsdthread handler start --------------\n");
-  fprintf(stderr, "orig_func = 0x%llx, orig_func_arg = 0x%llx\n", orig_func, orig_func_arg);
+
+  // pthread は pthread_self で取得可能。
+  // port は pthread_mach_thread_np で取得可能。
+  // _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void *arg, size_t stacksize, unsigned int pflags)
+  DEBUG("------------- bsdthread handler start --------------\n");
+  DEBUG("orig_func = 0x%llx, orig_func_arg = 0x%llx\n", orig_func, orig_func_arg);
   assert(vm);
-  lambchop_vm_call(vm, (void*)orig_func, 1, argv, logger);
+  assert(bsdthread_start);
+  argv[0] = (uint64_t)self;
+  argv[1] = (uint64_t)pthread_mach_thread_np(self);
+  argv[2] = orig_func;
+  argv[3] = orig_func_arg;
+  argv[4] = arg->orig_stack;
+  argv[5] = arg->orig_flags;
+  lambchop_vm_call(vm, (void*)bsdthread_start, 6, argv, logger);
   lambchop_vm_free(vm);
   free(arg);
-  fprintf(stderr, "------------- bsdthread handler end --------------\n");
+  DEBUG("------------- bsdthread handler end --------------\n");
 }
-
-static uint64_t bsdthread_start;
 
 static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t func = get_rdi(cpu);
