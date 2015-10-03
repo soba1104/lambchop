@@ -174,6 +174,7 @@ typedef struct {
   uint64_t orig_stack;
   uint64_t orig_pthread;
   uint32_t orig_flags;
+  void *tls;
   lambchop_logger *logger;
 } bsdthread_arg;
 
@@ -199,7 +200,7 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   DEBUG("orig_func = 0x%llx, orig_func_arg = 0x%llx\n", orig_func, orig_func_arg);
   assert(vm);
   assert(bsdthread_start);
-  argv[0] = (uint64_t)self;
+  argv[0] = (uint64_t)arg->tls;
   argv[1] = (uint64_t)pthread_mach_thread_np(self);
   argv[2] = orig_func;
   argv[3] = orig_func_arg;
@@ -207,6 +208,7 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   argv[5] = arg->orig_flags;
   lambchop_vm_call(vm, LAMBCHOP_VM_PTHREAD_STACK_ADJUST, (void*)bsdthread_start, 6, argv, logger);
   lambchop_vm_free(vm);
+  free(arg->tls);
   free(arg);
   DEBUG("------------- bsdthread handler end --------------\n");
 }
@@ -217,11 +219,16 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   uint64_t stack = get_rdx(cpu); // stack size
   uint64_t pthread = get_r10(cpu); // ???
   uint32_t flags = (uint32_t)get_r8(cpu);
+  int r;
+  void *tls;
   bsdthread_arg *arg = malloc(sizeof(bsdthread_arg)); // 解放は生成したスレッドで行う。
+#define TLS_SIZE 0x100000
+  r = posix_memalign(&tls, 0x4000, TLS_SIZE); // 解放は生成したスレッドで行う。
 
   DEBUG("SYSCALL: bsdthread_create(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%x)\n",
         func, func_arg, stack, pthread, flags);
   assert(arg);
+  assert(r >= 0);
   assert(pthread == 0);
   assert(bsdthread_start);
   arg->orig_func = func;
@@ -229,7 +236,9 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   arg->orig_stack = stack;
   arg->orig_pthread = pthread;
   arg->orig_flags = flags;
+  arg->tls = tls;
   arg->logger = logger;
+  memset(tls, 0, TLS_SIZE);
 
   // flags の下位ビットは policy と importance になっている。
   // policy はスケジュールの方針で importance は多分優先度。
@@ -269,6 +278,13 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   set_rdx(cpu, stack);
   set_r10(cpu, pthread);
   set_r8(cpu, flags);
+  {
+    // bsdthread_create は返り値に pthread_self の値(兼 TLS 領域)を返すので差し替える。
+    assert(get_rax(cpu) >= 0);
+    set_rax(cpu, (uint64_t)tls);
+    // TODO ここから抜けて pthread_create に戻って処理を進めるまでの間に
+    // 生成したスレッドが動き出してまずいことにならないかチェック。
+  }
 }
 
 static void syscall_callback_bsdthread_register(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
@@ -354,10 +370,10 @@ uint64_t lambchop_vm_call(lambchop_vm_t *vm, uint64_t stack_adjust, void *func, 
   int r;
 
   INFO("lambchop_vm_call start: func = %llx\n", func);
-  r = posix_memalign((void**)&stack, 0x1000, 0x1000000);
+  r = posix_memalign((void**)&stack, 0x4000, 0x100000);
   assert(r >= 0);
-  memset(stack, 0, 0x1000000);
-  set_stack(cpu, stack + 0x1000000 - stack_adjust);
+  memset(stack, 0, 0x100000);
+  set_stack(cpu, stack + 0x100000 - stack_adjust);
   set_rip(cpu, (uint64_t)func);
   if (argc > 0) set_rdi(cpu, argv[0]);
   if (argc > 1) set_rsi(cpu, argv[1]);
