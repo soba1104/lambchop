@@ -219,8 +219,12 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
 #define PTHREAD_START_SETSCHED  0x02000000
 #define PTHREAD_START_DETACHED  0x04000000
 #define PTHREAD_START_QOSCLASS  0x08000000
+  // PTHREAD_START_QOSCLASS はあんまり気にしなくてよさそう
+  // PTHREAD_START_SETSCHED と PTHREAD_START_DETACHED は意味がよくわかっていないので非対応。
   // PTHREAD_START_CUSTOM だと第四引数の pthread の扱いが変わるんだけどそれに未対応
   assert(!(flags & PTHREAD_START_CUSTOM));
+  assert(!(flags & PTHREAD_START_SETSCHED));
+  assert(!(flags & PTHREAD_START_DETACHED));
 
   set_rdi(cpu, (uint64_t)bsdthread_handler);
   set_rsi(cpu, (uint64_t)arg);
