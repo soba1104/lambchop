@@ -10,3 +10,4 @@ install_manifest.txt
 /include
 /src/lambchop
 /src/vm_main.c
+/.DS_Store
