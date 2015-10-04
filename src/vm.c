@@ -132,6 +132,13 @@ static void syscall_callback_open_nocancel(const syscall_entry *syscall, void *c
   syscall_callback_passthrough(syscall, cpu, logger);
 }
 
+static void syscall_callback_access(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  uint64_t path = get_rdi(cpu);
+  uint32_t mode = get_rsi(cpu);
+  DEBUG("SYSCALL: access(%s, 0x%x)\n", (char*)path, mode);
+  syscall_callback_passthrough(syscall, cpu, logger);
+}
+
 static void syscall_callback_shm_open(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t path = get_rdi(cpu);
   uint32_t flags = get_rsi(cpu);
