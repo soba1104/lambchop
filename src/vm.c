@@ -116,12 +116,19 @@ static void syscall_callback_passthrough(const syscall_entry *syscall, void *cpu
 
 static void syscall_callback_open(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t path = get_rdi(cpu);
-  uint64_t flags = get_rsi(cpu);
+  uint32_t flags = get_rsi(cpu);
   // TODO アドレス変換をかませる場合は path の取得を cpu を通して行う。
-  DEBUG("SYSCALL: open(%s, 0x%llx)\n", (char*)path, flags);
+  DEBUG("SYSCALL: open(%s, 0x%x)\n", (char*)path, flags);
   if ((flags & O_ACCMODE) == O_RDONLY) {
     // TODO path の書き換え
   }
+  syscall_callback_passthrough(syscall, cpu, logger);
+}
+
+static void syscall_callback_shm_open(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  uint64_t path = get_rdi(cpu);
+  uint32_t flags = get_rsi(cpu);
+  DEBUG("SYSCALL: shm_open(%s, 0x%x)\n", (char*)path, flags);
   syscall_callback_passthrough(syscall, cpu, logger);
 }
 
