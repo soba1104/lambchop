@@ -139,6 +139,18 @@ static void syscall_callback_access(const syscall_entry *syscall, void *cpu, lam
   syscall_callback_passthrough(syscall, cpu, logger);
 }
 
+static void syscall_callback_stat64(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  uint64_t path = get_rdi(cpu);
+  DEBUG("SYSCALL: stat64(%s, 0x%x)\n", (char*)path);
+  syscall_callback_passthrough(syscall, cpu, logger);
+}
+
+static void syscall_callback_getattrlist(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  uint64_t path = get_rdi(cpu);
+  DEBUG("SYSCALL: getattrlist(%s, 0x%x)\n", (char*)path);
+  syscall_callback_passthrough(syscall, cpu, logger);
+}
+
 static void syscall_callback_shm_open(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t path = get_rdi(cpu);
   uint32_t flags = get_rsi(cpu);
