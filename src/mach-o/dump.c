@@ -690,6 +690,13 @@ bool lc_dump_segment_split_info(struct linkedit_data_command *command, char *img
   return true;
 }
 
+bool lc_dump_rpath(struct rpath_command *command, char *img, lambchop_logger *logger) {
+  lambchop_info(logger, "--------------------- RPATH COMMAND ---------------------\n");
+  lambchop_info(logger, "name = %s\n", ((char*)command) + command->path.offset);
+  lambchop_info(logger, "---------------------------------------------------------\n");
+  return true;
+}
+
 static bool lc_dump(struct load_command *command, char *img, bool is32, lambchop_logger *logger) {
   switch(command->cmd) {
     case LC_SEGMENT:
@@ -732,6 +739,8 @@ static bool lc_dump(struct load_command *command, char *img, bool is32, lambchop
       return lc_dump_code_signature((struct linkedit_data_command*)command, img, logger);
     case LC_SEGMENT_SPLIT_INFO:
       return lc_dump_segment_split_info((struct linkedit_data_command*)command, img, logger);
+    case LC_RPATH:
+      return lc_dump_rpath((struct rpath_command*)command, img, logger);
     default:
       lambchop_err(logger, "unexpected load command: 0x%x\n", command->cmd);
       return false;
