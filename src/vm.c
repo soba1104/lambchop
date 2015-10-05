@@ -15,6 +15,7 @@
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
   static int count = 0;
+  /*if ((count++) <= 174700000) {*/
   if ((count++) <= 200000000) {
   /*if ((count++) <= 10450000) {*/
   /*if ((count++) <= 10401000) {*/
