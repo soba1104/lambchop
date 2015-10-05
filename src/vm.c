@@ -437,6 +437,9 @@ uint64_t lambchop_vm_call(lambchop_vm_t *vm, uint64_t stack_adjust, void *func, 
       uint64_t id = get_rax(cpu);
       DEBUG("int3: id = 0x%llx\n", id);
       assert(false);
+    } else if (opcode == 0x2b4) {
+      DEBUG("ud2\n"); // invalid opcode(SIGILL)を発生させる。
+      assert(false);
     } else {
       step(cpu, insn);
     }
