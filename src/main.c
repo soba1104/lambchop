@@ -21,6 +21,13 @@ for (i = 0; i < 0x20; i++) {
     signal(i, signal_handler);
   }
 }
+for (i = 0; envp[i]; i++) {
+  if (envp[i][0] == '_' && envp[i][1] == '=') {
+    envp[i] = argv[1];
+    break;
+  }
+}
+apple[0] = argv[1];
 
   if (argc < 3) {
     fprintf(stderr, "usage: lambchop executable_path dyld_path\n");
