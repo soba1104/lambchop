@@ -325,6 +325,7 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   }
 }
 
+int _pthread_workqueue_supported();
 static void syscall_callback_bsdthread_register(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t threadstart = get_rdi(cpu);
   uint64_t wqthread = get_rsi(cpu);
@@ -340,7 +341,7 @@ static void syscall_callback_bsdthread_register(const syscall_entry *syscall, vo
   // 2度目以降の register は無視されるので passthrough する意味が無い。
   /*syscall_callback_passthrough(syscall, cpu, logger);*/
   clear_cf(cpu);
-  set_rax(cpu, 0);
+  set_rax(cpu, (uint64_t)_pthread_workqueue_supported());
 }
 
 static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
