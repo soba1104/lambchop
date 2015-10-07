@@ -216,6 +216,19 @@ typedef struct {
 
 static uint64_t bsdthread_start;
 
+// flags の下位ビットは policy と importance になっている。
+// policy はスケジュールの方針で importance は多分優先度。
+// 上位ビットは以下のマクロのようなフィールドを持っている。
+// 以下は libpthread から持ってきたマクロ
+#define PTHREAD_START_CUSTOM  0x01000000
+#define PTHREAD_START_SETSCHED  0x02000000
+#define PTHREAD_START_DETACHED  0x04000000
+#define PTHREAD_START_QOSCLASS  0x08000000
+// PTHREAD_START_QOSCLASS はあんまり気にしなくてよさそう
+// PTHREAD_START_SETSCHED と PTHREAD_START_DETACHED は意味がよくわかっていないので非対応。
+// PTHREAD_START_DETACHED は detach 済みで join 対象にならないスレッドを作成する。気にしなくてよさそう。
+// PTHREAD_START_CUSTOM だと pthread や stack の扱いが変わるんだけどそれに未対応
+
 static void bsdthread_handler(bsdthread_arg *arg) {
   uint64_t orig_func = arg->orig_func;
   uint64_t orig_func_arg = arg->orig_func_arg;
@@ -236,6 +249,7 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   DEBUG("orig_func = 0x%llx, orig_func_arg = 0x%llx\n", orig_func, orig_func_arg);
   assert(vm);
   assert(bsdthread_start);
+  assert(!(arg->orig_flags & PTHREAD_START_CUSTOM));
   argv[0] = (uint64_t)arg->tls;
   argv[1] = (uint64_t)pthread_mach_thread_np(self);
   argv[2] = orig_func;
@@ -278,18 +292,6 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   arg->logger = logger;
   memset(tls, 0, TLS_SIZE);
 
-  // flags の下位ビットは policy と importance になっている。
-  // policy はスケジュールの方針で importance は多分優先度。
-  // 上位ビットは以下のマクロのようなフィールドを持っている。
-  // 以下は libpthread から持ってきたマクロ
-#define PTHREAD_START_CUSTOM  0x01000000
-#define PTHREAD_START_SETSCHED  0x02000000
-#define PTHREAD_START_DETACHED  0x04000000
-#define PTHREAD_START_QOSCLASS  0x08000000
-  // PTHREAD_START_QOSCLASS はあんまり気にしなくてよさそう
-  // PTHREAD_START_SETSCHED と PTHREAD_START_DETACHED は意味がよくわかっていないので非対応。
-  // PTHREAD_START_DETACHED は detach 済みで join 対象にならないスレッドを作成する。気にしなくてよさそう。
-  // PTHREAD_START_CUSTOM だと pthread や stack の扱いが変わるんだけどそれに未対応
   assert(!(flags & PTHREAD_START_CUSTOM));
   assert(!(flags & PTHREAD_START_SETSCHED));
 
