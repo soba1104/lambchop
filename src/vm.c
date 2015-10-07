@@ -267,33 +267,33 @@ static void bsdthread_handler(bsdthread_arg *arg) {
 }
 
 static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
-  uint64_t func = get_rdi(cpu);
-  uint64_t func_arg = get_rsi(cpu);
-  uint64_t stack = get_rdx(cpu); // stack size
-  uint64_t pthread = get_r10(cpu); // ???
-  uint32_t flags = (uint32_t)get_r8(cpu);
+  uint64_t orig_func = get_rdi(cpu);
+  uint64_t orig_func_arg = get_rsi(cpu);
+  uint64_t orig_stack = get_rdx(cpu); // stack size
+  uint64_t orig_pthread = get_r10(cpu); // ???
+  uint32_t orig_flags = (uint32_t)get_r8(cpu);
   uint64_t stack_size;
   void *tls;
   int r;
   bsdthread_arg *arg = malloc(sizeof(bsdthread_arg)); // 解放は生成したスレッドで行う。
 
   assert(arg);
-  assert(!(flags & PTHREAD_START_SETSCHED));
+  assert(!(orig_flags & PTHREAD_START_SETSCHED));
   DEBUG("SYSCALL: bsdthread_create(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%x)\n",
-        func, func_arg, stack, pthread, flags);
+        orig_func, orig_func_arg, orig_stack, orig_pthread, orig_flags);
 
-  assert(pthread == 0);
+  assert(orig_pthread == 0);
   assert(bsdthread_start);
-  arg->orig_func = func;
-  arg->orig_func_arg = func_arg;
-  arg->orig_stack = stack;
-  arg->orig_pthread = pthread;
-  arg->orig_flags = flags;
+  arg->orig_func = orig_func;
+  arg->orig_func_arg = orig_func_arg;
+  arg->orig_stack = orig_stack;
+  arg->orig_pthread = orig_pthread;
+  arg->orig_flags = orig_flags;
   arg->logger = logger;
 
 #define TLS_SIZE 0x100000
-  if (!(flags & PTHREAD_START_CUSTOM)) {
-    stack_size = stack;
+  if (!(orig_flags & PTHREAD_START_CUSTOM)) {
+    stack_size = orig_stack;
   } else {
     assert(false);
   }
@@ -320,13 +320,13 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   set_rsi(cpu, (uint64_t)arg);
   set_rdx(cpu, 0x4000UL); // TODO 定数に置き換える
   set_r10(cpu, 0);
-  set_r8(cpu, flags & ~PTHREAD_START_CUSTOM);
+  set_r8(cpu, orig_flags & ~PTHREAD_START_CUSTOM);
   syscall_callback_passthrough(syscall, cpu, logger);
-  set_rdi(cpu, func);
-  set_rsi(cpu, func_arg);
-  set_rdx(cpu, stack);
-  set_r10(cpu, pthread);
-  set_r8(cpu, flags);
+  set_rdi(cpu, orig_func);
+  set_rsi(cpu, orig_func_arg);
+  set_rdx(cpu, orig_stack);
+  set_r10(cpu, orig_pthread);
+  set_r8(cpu, orig_flags);
   {
     // bsdthread_create は返り値に pthread_self の値(兼 TLS 領域)を返すので差し替える。
     assert(get_rax(cpu) >= 0);
