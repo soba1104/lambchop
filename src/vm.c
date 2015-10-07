@@ -212,6 +212,7 @@ typedef struct {
   uint32_t orig_flags;
   void *tls;
   void *stack;
+  uint64_t stacksize;
   lambchop_logger *logger;
 } bsdthread_arg;
 
@@ -236,7 +237,7 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   uint64_t argv[6];
   pthread_t self = pthread_self();
   lambchop_logger *logger = arg->logger;
-  lambchop_vm_t *vm = lambchop_vm_alloc(NULL, 0x100000);
+  lambchop_vm_t *vm = lambchop_vm_alloc(arg->stack, arg->stacksize);
 
   // PTHREAD_START_CUSTOM が無効化だった場合は以下のとおり。
   // -: stack はこちら側で割り当ててよい。
@@ -259,9 +260,9 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   argv[5] = arg->orig_flags;
   // libpthread のほうで set cthread self を呼んでくれるようなので、
   // ここで gs を上書きする必要は無い。
+  // stack と tls は vm が解放するので個別に free を呼び出す必要はない。
   lambchop_vm_call(vm, LAMBCHOP_VM_PTHREAD_STACK_ADJUST, (void*)bsdthread_start, 6, argv, logger);
   lambchop_vm_free(vm);
-  free(arg->stack);
   free(arg);
   DEBUG("------------- bsdthread handler end --------------\n");
 }
@@ -305,6 +306,7 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   memset(stack, 0, stack_size + TLS_SIZE);
   arg->tls = stack + stack_size;
   arg->stack = stack;
+  arg->stacksize = stack_size;
 
   // pthread っていう引数の意味はよくわかってないけど、
   // PTHREAD_START_CUSTOM が無効化されている場合の処理を見たところ、
