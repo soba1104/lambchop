@@ -211,6 +211,7 @@ typedef struct {
   uint64_t orig_pthread;
   uint32_t orig_flags;
   void *tls;
+  void *stack;
   uint64_t stack_size;
   lambchop_logger *logger;
 } bsdthread_arg;
@@ -273,7 +274,7 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   uint64_t orig_pthread = get_r10(cpu); // ???
   uint32_t orig_flags = (uint32_t)get_r8(cpu);
   uint64_t stack_size;
-  void *tls;
+  void *tls, *stack;
   int r;
   bsdthread_arg *arg = malloc(sizeof(bsdthread_arg)); // 解放は生成したスレッドで行う。
 
@@ -298,11 +299,14 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
     assert(false);
   }
 
-  r = posix_memalign(&tls, 0x4000, TLS_SIZE); // 解放は生成したスレッドで行う。
+  // 解放は生成したスレッドで行う。
+  // stack と tls の領域は並んでいないといけないのでまとめて割り当てる。
+  r = posix_memalign(&stack, 0x4000, stack_size + TLS_SIZE);
   assert(r >= 0);
-  arg->tls = tls;
+  memset(stack, 0, stack_size + TLS_SIZE);
+  arg->tls = stack + stack_size;
+  arg->stack = stack;
   arg->stack_size = stack_size;
-  memset(tls, 0, TLS_SIZE);
 
   // pthread っていう引数の意味はよくわかってないけど、
   // PTHREAD_START_CUSTOM が無効化されている場合の処理を見たところ、
