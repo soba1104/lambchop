@@ -236,7 +236,7 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   uint64_t argv[6];
   pthread_t self = pthread_self();
   lambchop_logger *logger = arg->logger;
-  lambchop_vm_t *vm = lambchop_vm_alloc(); // TODO stack size の設定
+  lambchop_vm_t *vm = lambchop_vm_alloc(NULL, 0x100000);
 
   // PTHREAD_START_CUSTOM が無効化だった場合は以下のとおり。
   // -: stack はこちら側で割り当ててよい。
@@ -416,17 +416,13 @@ static void handle_syscall(void *cpu, lambchop_logger *logger) {
 }
 
 uint64_t lambchop_vm_call(lambchop_vm_t *vm, uint64_t stack_adjust, void *func, int argc, uint64_t *argv, lambchop_logger *logger) {
-  uint8_t *stack;
   uint16_t opcode;
   void *cpu = vm->cpu, *insn = vm->insn;
   uint64_t rip, rax;
   int r;
 
   INFO("lambchop_vm_call start: func = %llx\n", func);
-  r = posix_memalign((void**)&stack, 0x4000, 0x100000);
-  assert(r >= 0);
-  memset(stack, 0, 0x100000);
-  set_stack(cpu, stack + 0x100000 - stack_adjust);
+  set_stack(cpu, (uint8_t*)vm->stack + vm->stacksize - stack_adjust);
   set_rip(cpu, (uint64_t)func);
   if (argc > 0) set_rdi(cpu, argv[0]);
   if (argc > 1) set_rsi(cpu, argv[1]);
@@ -460,7 +456,6 @@ uint64_t lambchop_vm_call(lambchop_vm_t *vm, uint64_t stack_adjust, void *func, 
     }
   }
   rax = get_rax(cpu);
-  free(stack);
   INFO("lambchop_vm_call finish: ret = %llx\n", rax);
   return rax;
 }
@@ -471,20 +466,31 @@ int lambchop_vm_run(lambchop_vm_t *vm, void *mainfunc, lambchop_logger *logger) 
   return lambchop_vm_call(vm, LAMBCHOP_VM_DEFAULT_STACK_ADJUST, mainfunc, 0, NULL, logger);
 }
 
-lambchop_vm_t *lambchop_vm_alloc(void) {
+lambchop_vm_t *lambchop_vm_alloc(void *stack, uint64_t stacksize) {
   lambchop_vm_t *vm = malloc(sizeof(lambchop_vm_t));
   void *cpu = alloc_cpu();
   void *insn = alloc_insn();
+
+  if (!stack) {
+    int r = posix_memalign((void**)&stack, 0x4000, stacksize);
+    assert(r >= 0);
+  }
+  memset(stack, 0, stacksize);
+
   assert(vm);
   assert(cpu);
   assert(insn);
   vm->cpu = cpu;
   vm->insn = insn;
+  vm->stack = stack;
+  vm->stacksize = stacksize;
+
   return vm;
 }
 
 void lambchop_vm_free(lambchop_vm_t *vm) {
   free_insn(vm->insn);
   free_cpu(vm->cpu);
+  free(vm->stack);
   free(vm);
 }

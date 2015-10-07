@@ -28,6 +28,8 @@ typedef struct {
 typedef struct {
   void *cpu;
   void *insn;
+  void *stack;
+  uint64_t stacksize;
 } lambchop_vm_t;
 
 void lambchop_logger_log(lambchop_logger *logger, int level, const char *format, ...);
@@ -40,7 +42,7 @@ void *lambchop_macho_load(lambchop_vm_t *vm, char *app_path, char *dyld_path, la
 
 bool lambchop_file_read_all(const char *path, lambchop_logger *logger, char **buf, size_t *size);
 
-lambchop_vm_t *lambchop_vm_alloc(void);
+lambchop_vm_t *lambchop_vm_alloc(void *stack, uint64_t stacksize);
 void lambchop_vm_free(lambchop_vm_t *vm);
 int lambchop_vm_run(lambchop_vm_t *vm, void *mainfunc, lambchop_logger *logger);
 

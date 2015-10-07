@@ -50,7 +50,7 @@ apple[0] = argv[1];
     goto err;
   }
 
-  vm = lambchop_vm_alloc();
+  vm = lambchop_vm_alloc(NULL, 0x100000);
   if (!vm) {
     lambchop_err(&logger, "failed to allocate vm\n");
     goto err;
