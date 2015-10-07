@@ -15,8 +15,9 @@
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
   static int count = 0;
-  /*if ((count++) <= 174700000) {*/
-  if ((count++) <= 200000000) {
+  if ((count++) <= 175000000) {
+  /*if ((count++) <= 175280000) {*/
+  /*if ((count++) <= 200000000) {*/
   /*if ((count++) <= 10450000) {*/
   /*if ((count++) <= 10401000) {*/
   /*if ((count++) <= 10200000 || count >= 10265000) {*/
@@ -287,10 +288,10 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
 #define PTHREAD_START_QOSCLASS  0x08000000
   // PTHREAD_START_QOSCLASS はあんまり気にしなくてよさそう
   // PTHREAD_START_SETSCHED と PTHREAD_START_DETACHED は意味がよくわかっていないので非対応。
+  // PTHREAD_START_DETACHED は detach 済みで join 対象にならないスレッドを作成する。気にしなくてよさそう。
   // PTHREAD_START_CUSTOM だと pthread や stack の扱いが変わるんだけどそれに未対応
   assert(!(flags & PTHREAD_START_CUSTOM));
   assert(!(flags & PTHREAD_START_SETSCHED));
-  assert(!(flags & PTHREAD_START_DETACHED));
 
   // pthread っていう引数の意味はよくわかってないけど、
   // PTHREAD_START_CUSTOM が無効化されている場合の処理を見たところ、
