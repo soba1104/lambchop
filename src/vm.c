@@ -279,14 +279,6 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   DEBUG("SYSCALL: bsdthread_create(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%x)\n",
         func, func_arg, stack, pthread, flags);
 
-#define TLS_SIZE 0x100000
-  if (!(flags & PTHREAD_START_CUSTOM)) {
-    int r = posix_memalign(&tls, 0x4000, TLS_SIZE); // 解放は生成したスレッドで行う。
-    assert(r >= 0);
-  } else {
-    assert(false);
-  }
-
   assert(pthread == 0);
   assert(bsdthread_start);
   arg->orig_func = func;
@@ -294,9 +286,17 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   arg->orig_stack = stack;
   arg->orig_pthread = pthread;
   arg->orig_flags = flags;
-  arg->tls = tls;
   arg->logger = logger;
-  memset(tls, 0, TLS_SIZE);
+
+#define TLS_SIZE 0x100000
+  if (!(flags & PTHREAD_START_CUSTOM)) {
+    int r = posix_memalign(&tls, 0x4000, TLS_SIZE); // 解放は生成したスレッドで行う。
+    assert(r >= 0);
+    arg->tls = tls;
+    memset(tls, 0, TLS_SIZE);
+  } else {
+    assert(false);
+  }
 
   // pthread っていう引数の意味はよくわかってないけど、
   // PTHREAD_START_CUSTOM が無効化されている場合の処理を見たところ、
