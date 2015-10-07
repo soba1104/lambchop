@@ -212,7 +212,6 @@ typedef struct {
   uint32_t orig_flags;
   void *tls;
   void *stack;
-  uint64_t stack_size;
   lambchop_logger *logger;
 } bsdthread_arg;
 
@@ -262,7 +261,7 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   // ここで gs を上書きする必要は無い。
   lambchop_vm_call(vm, LAMBCHOP_VM_PTHREAD_STACK_ADJUST, (void*)bsdthread_start, 6, argv, logger);
   lambchop_vm_free(vm);
-  free(arg->tls);
+  free(arg->stack);
   free(arg);
   DEBUG("------------- bsdthread handler end --------------\n");
 }
@@ -306,7 +305,6 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   memset(stack, 0, stack_size + TLS_SIZE);
   arg->tls = stack + stack_size;
   arg->stack = stack;
-  arg->stack_size = stack_size;
 
   // pthread っていう引数の意味はよくわかってないけど、
   // PTHREAD_START_CUSTOM が無効化されている場合の処理を見たところ、
