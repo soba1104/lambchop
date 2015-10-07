@@ -271,20 +271,22 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   uint64_t stack = get_rdx(cpu); // stack size
   uint64_t pthread = get_r10(cpu); // ???
   uint32_t flags = (uint32_t)get_r8(cpu);
-  int r;
   void *tls;
   bsdthread_arg *arg = malloc(sizeof(bsdthread_arg)); // 解放は生成したスレッドで行う。
 
-  assert(!(flags & PTHREAD_START_CUSTOM));
+  assert(arg);
   assert(!(flags & PTHREAD_START_SETSCHED));
   DEBUG("SYSCALL: bsdthread_create(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%x)\n",
         func, func_arg, stack, pthread, flags);
 
 #define TLS_SIZE 0x100000
-  r = posix_memalign(&tls, 0x4000, TLS_SIZE); // 解放は生成したスレッドで行う。
+  if (!(flags & PTHREAD_START_CUSTOM)) {
+    int r = posix_memalign(&tls, 0x4000, TLS_SIZE); // 解放は生成したスレッドで行う。
+    assert(r >= 0);
+  } else {
+    assert(false);
+  }
 
-  assert(arg);
-  assert(r >= 0);
   assert(pthread == 0);
   assert(bsdthread_start);
   arg->orig_func = func;
