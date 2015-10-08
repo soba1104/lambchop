@@ -361,6 +361,29 @@ static void syscall_callback_bsdthread_register(const syscall_entry *syscall, vo
   set_rax(cpu, (uint64_t)_pthread_workqueue_supported());
 }
 
+static void syscall_callback_workq_kernreturn(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  // rsi に入っている引数はこのシステムコールだと無視されるので気にしない。
+  uint32_t options = get_rdi(cpu);
+  uint32_t arg2 = get_rdx(cpu);
+  uint32_t arg3 = get_r10(cpu);
+
+  // 以下は libpthread の kern/workqueue_internal.h から持ってきたマクロ
+#define WQOPS_QUEUE_NEWSPISUPP  0x10
+#define WQOPS_QUEUE_REQTHREADS  0x20
+#define WQOPS_QUEUE_REQTHREADS2 0x30
+  switch (options) {
+    case WQOPS_QUEUE_NEWSPISUPP:
+      DEBUG("SYSCALL: workq_kernreturn(NEWSPISUPP, offset=0x%x)\n", arg2);
+      break;
+    case WQOPS_QUEUE_REQTHREADS:
+      DEBUG("SYSCALL: workq_kernreturn(REQTHREADS, reqcount=0x%x, priority=0x%x)\n", arg2, arg3);
+      break;
+    default:
+      assert(false);
+  }
+  syscall_callback_passthrough(syscall, cpu, logger);
+}
+
 static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   DEBUG("SYSCALL TODO: %s\n", syscall->name);
   assert(false);
