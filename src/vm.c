@@ -217,6 +217,7 @@ typedef struct {
 } bsdthread_arg;
 
 static uint64_t bsdthread_start;
+static uint64_t wqthread_start;
 
 // flags の下位ビットは policy と importance になっている。
 // policy はスケジュールの方針で importance は多分優先度。
@@ -265,6 +266,10 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   lambchop_vm_free(vm);
   free(arg);
   DEBUG("------------- bsdthread handler end --------------\n");
+}
+
+static void wqthread_handler(int priority, int options, void *context) {
+  assert(false);
 }
 
 static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
@@ -342,6 +347,9 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   }
 }
 
+// pthread_wqthread では new api が設定する変数を参照していなかったので、old api を使う。
+// offset の設定が必要ないぶんこっちのが楽。
+int pthread_workqueue_setdispatch_np(void *func);
 int _pthread_workqueue_supported();
 static void syscall_callback_bsdthread_register(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t threadstart = get_rdi(cpu);
@@ -353,6 +361,8 @@ static void syscall_callback_bsdthread_register(const syscall_entry *syscall, vo
 
   assert(!bsdthread_start);
   bsdthread_start = threadstart;
+  wqthread_start = wqthread;
+  pthread_workqueue_setdispatch_np(wqthread_handler);
   DEBUG("SYSCALL: bsdthread_register(0x%llx, 0x%llx, 0x%x, 0x%llx, 0x%llx, 0x%llx)\n",
         threadstart, wqthread, pthsize, pthread_init_data, targetconc_ptr, dispatchqueue_offset);
   // 2度目以降の register は無視されるので passthrough する意味が無い。
