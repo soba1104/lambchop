@@ -16,7 +16,7 @@
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
   static int count = 0;
   /*if ((count++) <= 175000000) {*/
-  if ((count++) <= 300000000) {
+  if ((count++) <= 400000000) {
   /*if ((count++) <= 200000000) {*/
   /*if ((count++) <= 10450000) {*/
   /*if ((count++) <= 10401000) {*/
@@ -112,8 +112,11 @@ static void syscall_callback_passthrough(const syscall_entry *syscall, void *cpu
   rflags = lambchop_syscall(&idret, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
   set_oszapc(cpu, (uint32_t)(rflags & 0xffffffffUL));
   set_rax(cpu, idret);
-  DEBUG("SYSCALL PASSTHROUGH: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
-        syscall->name, id, a0, a1, a2, a3, a4, a5, idret, rflags);
+  if (strcmp(syscall->name, "thread_switch") != 0) {
+    // thread_switch は大量に吐かれるのでログ出力しない。
+    DEBUG("SYSCALL PASSTHROUGH: %s(0x%llx)(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) = 0x%llx, 0x%llx\n",
+          syscall->name, id, a0, a1, a2, a3, a4, a5, idret, rflags);
+  }
 }
 
 static void syscall_callback_open(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
