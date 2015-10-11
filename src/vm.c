@@ -270,6 +270,19 @@ static void bsdthread_handler(bsdthread_arg *arg) {
 
 int _pthread_workqueue_supported();
 static void wqthread_handler(int priority, int options, void *context) {
+  int features = _pthread_workqueue_supported();
+
+// 以下は libpthread の kern/kern_internal.h から持ってきたマクロ
+#define PTHREAD_FEATURE_DISPATCHFUNC    0x01
+#define PTHREAD_FEATURE_FINEPRIO        0x02
+#define PTHREAD_FEATURE_BSDTHREADCTL    0x04
+#define PTHREAD_FEATURE_SETSELF         0x08
+#define PTHREAD_FEATURE_QOS_MAINTENANCE 0x10
+#define PTHREAD_FEATURE_QOS_DEFAULT     0x40000000
+  assert(features & PTHREAD_FEATURE_QOS_MAINTENANCE); // これによって priority の計算方法が変わる
+  assert(features & PTHREAD_FEATURE_FINEPRIO); // これによってコールバックの引数が変わる。
+
+  fprintf(stderr, "features = 0x%x\n", features);
   assert(false);
 }
 
