@@ -268,6 +268,7 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   DEBUG("------------- bsdthread handler end --------------\n");
 }
 
+int _pthread_workqueue_supported();
 static void wqthread_handler(int priority, int options, void *context) {
   assert(false);
 }
@@ -347,10 +348,6 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   }
 }
 
-// pthread_wqthread では new api が設定する変数を参照していなかったので、old api を使う。
-// offset の設定が必要ないぶんこっちのが楽。
-int pthread_workqueue_setdispatch_np(void *func);
-int _pthread_workqueue_supported();
 static void syscall_callback_bsdthread_register(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   uint64_t threadstart = get_rdi(cpu);
   uint64_t wqthread = get_rsi(cpu);
@@ -362,7 +359,6 @@ static void syscall_callback_bsdthread_register(const syscall_entry *syscall, vo
   assert(!bsdthread_start);
   bsdthread_start = threadstart;
   wqthread_start = wqthread;
-  pthread_workqueue_setdispatch_np(wqthread_handler);
   DEBUG("SYSCALL: bsdthread_register(0x%llx, 0x%llx, 0x%x, 0x%llx, 0x%llx, 0x%llx)\n",
         threadstart, wqthread, pthsize, pthread_init_data, targetconc_ptr, dispatchqueue_offset);
   // 2度目以降の register は無視されるので passthrough する意味が無い。
@@ -371,6 +367,8 @@ static void syscall_callback_bsdthread_register(const syscall_entry *syscall, vo
   set_rax(cpu, (uint64_t)_pthread_workqueue_supported());
 }
 
+/*int pthread_workqueue_setdispatch_np(void *func); // old api*/
+int _pthread_workqueue_init(void *func, int offset, int flags); // new api
 static void syscall_callback_workq_kernreturn(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   // rsi に入っている引数はこのシステムコールだと無視されるので気にしない。
   uint32_t options = get_rdi(cpu);
@@ -383,6 +381,22 @@ static void syscall_callback_workq_kernreturn(const syscall_entry *syscall, void
 #define WQOPS_QUEUE_REQTHREADS2 0x30
   switch (options) {
     case WQOPS_QUEUE_NEWSPISUPP:
+      // ここで libdispatch_offset が設定される。
+      // pthread_supported_features を上書きしてよいか現状分かっていない。
+      // そのような条件だと new api のほうが priority から pthread_wqthread の引数を再構築しやすいので、
+      // new api が使用する _pthread_workqueue_init を使用する。
+      // ちなみに、old api は pthread_workqueue_setdispatchoffset_np と pthread_workqueue_setdispatch_np を使用する。
+      //
+      // _pthread_workqueue_init の引数である flags と offset のうち、
+      // flags は現在参照している pthread だと 0 じゃないといけないので常に 0 を指定してよい。
+      // また、offset には workq_kernreturn が WQOPS_QUEUE_NEWSPISUPP で呼ばれたときの arg2 を渡せばよい。
+      //
+      // なお、_pthread_workqueue_init の中で、workq_kernreturn を呼び出し、
+      // カーネル内部の libdispatch serialno を上書きしてしまうので、
+      // workq_kernreturn を passthrough する前に lambchop がこの関数を実行する必要がある。
+      // old api を使用して、pthread_workqueue_setdispatchoffset_np を使う場合も同様。
+      _pthread_workqueue_init(wqthread_handler, arg2, 0);
+
       DEBUG("SYSCALL: workq_kernreturn(NEWSPISUPP, offset=0x%x)\n", arg2);
       break;
     case WQOPS_QUEUE_REQTHREADS:
