@@ -219,6 +219,9 @@ typedef struct {
 static uint64_t bsdthread_start;
 static uint64_t wqthread_start;
 
+// TLS_SIZE は自分で適当に定めた値。とりあえず1MBにしておいた。
+#define TLS_SIZE 0x100000
+
 // flags の下位ビットは policy と importance になっている。
 // policy はスケジュールの方針で importance は多分優先度。
 // 上位ビットは以下のマクロのようなフィールドを持っている。
@@ -316,8 +319,8 @@ static void wqthread_handler(int priority) {
   // assert で WQ_FLAG_THREAD_NEWSPI が常に on になっていることを期待していたのでそれに従う。
   flags |= WQ_FLAG_THREAD_NEWSPI;
 
-  // thread の初期化処理を走らせたいので reuse は常に on にする。
-  flags |= WQ_FLAG_THREAD_REUSE;
+  // thread の初期化処理を走らせたいので reuse は常に off にする。
+  flags &= ~WQ_FLAG_THREAD_REUSE;
 
   // overcommit の有無は priority に埋め込まれている。
   if (priority & _PTHREAD_PRIORITY_OVERCOMMIT_FLAG) {
@@ -357,8 +360,46 @@ static void wqthread_handler(int priority) {
     }
   }
 
-  fprintf(stderr, "features = 0x%x, flags = 0x%x\n", features, flags);
-  assert(false);
+  {
+    lambchop_logger __logger;
+    lambchop_logger *logger = &__logger;
+    lambchop_vm_t *vm;
+    uint64_t guard_size = 0; // FIXME
+    uint64_t stack_size = 0x100000; // 適当に 1MB 割り当てる。
+    uint64_t tls_size = TLS_SIZE;
+    uint8_t *p, *guard, *stack, *tls;
+    uint64_t argv[5];
+    int r;
+
+    if (!lambchop_logger_init(logger)) {
+      assert(false);
+    }
+
+    // TODO 以下のスタックや TLS 割り当てまわりの処理を bsdthread_create のコールバックと共通化する。
+    // TODO mprotect を使ってスタックオーバーフローを検出できるようにする。
+    // TODO ガード領域を設定する。
+
+    // (low) guard -> stack -> tls (high)
+    r = posix_memalign((void**)&p, 0x4000, guard_size + stack_size + tls_size);
+    assert(r >= 0);
+    memset(p, 0, guard_size + stack_size + tls_size);
+    guard = p;
+    stack = p + guard_size;
+    tls = p + guard_size + stack_size;
+
+    // TODO guard == 0 じゃないと free でコケるのでどうにかする。
+    vm = lambchop_vm_alloc(stack, stack_size);
+    assert(vm);
+
+    argv[0] = (uint64_t)tls;
+    argv[1] = (uint64_t)pthread_mach_thread_np(pthread_self());
+    argv[2] = (uint64_t)stack;
+    argv[3] = 0; // unused
+    argv[4] = flags;
+
+    lambchop_vm_call(vm, LAMBCHOP_VM_PTHREAD_STACK_ADJUST, (void*)wqthread_start, 5, argv, logger);
+    lambchop_vm_free(vm);
+  }
 }
 
 static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
@@ -386,7 +427,6 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   arg->orig_flags = orig_flags;
   arg->logger = logger;
 
-#define TLS_SIZE 0x100000
   if (!(orig_flags & PTHREAD_START_CUSTOM)) {
     stack_size = orig_stack;
   } else {
