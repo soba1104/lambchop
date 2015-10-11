@@ -269,20 +269,95 @@ static void bsdthread_handler(bsdthread_arg *arg) {
 }
 
 int _pthread_workqueue_supported();
-static void wqthread_handler(int priority, int options, void *context) {
-  int features = _pthread_workqueue_supported();
+static void wqthread_handler(int priority) {
+// libpthread の private/qos_private.h から持ってきたマクロ
+#define _PTHREAD_PRIORITY_FLAGS_MASK    (~0xffffff)
+#define _PTHREAD_PRIORITY_QOS_CLASS_MASK  0x00ffff00
+#define _PTHREAD_PRIORITY_QOS_CLASS_SHIFT (8ull)
+#define _PTHREAD_PRIORITY_PRIORITY_MASK   0x000000ff
+#define _PTHREAD_PRIORITY_PRIORITY_SHIFT  (0)
 
-// 以下は libpthread の kern/kern_internal.h から持ってきたマクロ
+#define _PTHREAD_PRIORITY_OVERCOMMIT_FLAG 0x80000000
+#define _PTHREAD_PRIORITY_INHERIT_FLAG    0x40000000
+#define _PTHREAD_PRIORITY_ROOTQUEUE_FLAG  0x20000000
+#define _PTHREAD_PRIORITY_ENFORCE_FLAG    0x10000000
+#define _PTHREAD_PRIORITY_OVERRIDE_FLAG   0x08000000
+
+// libpthread の kern/workqueue_internal.h から持ってきたマクロ
+#define WQ_FLAG_THREAD_PRIOMASK   0x0000ffff
+#define WQ_FLAG_THREAD_PRIOSHIFT  (8ull)
+#define WQ_FLAG_THREAD_OVERCOMMIT 0x00010000
+#define WQ_FLAG_THREAD_REUSE      0x00020000
+#define WQ_FLAG_THREAD_NEWSPI     0x00040000
+
+#define __PTHREAD_PRIORITY_CBIT_USER_INTERACTIVE 0x20
+#define __PTHREAD_PRIORITY_CBIT_USER_INITIATED 0x10
+#define __PTHREAD_PRIORITY_CBIT_DEFAULT 0x8
+#define __PTHREAD_PRIORITY_CBIT_UTILITY 0x4
+#define __PTHREAD_PRIORITY_CBIT_BACKGROUND 0x2
+#define __PTHREAD_PRIORITY_CBIT_MAINTENANCE 0x1
+#define __PTHREAD_PRIORITY_CBIT_UNSPECIFIED 0x0
+
+// ibpthread の kern/kern_internal.h から持ってきたマクロ
 #define PTHREAD_FEATURE_DISPATCHFUNC    0x01
 #define PTHREAD_FEATURE_FINEPRIO        0x02
 #define PTHREAD_FEATURE_BSDTHREADCTL    0x04
 #define PTHREAD_FEATURE_SETSELF         0x08
 #define PTHREAD_FEATURE_QOS_MAINTENANCE 0x10
 #define PTHREAD_FEATURE_QOS_DEFAULT     0x40000000
+
+  // flags に対し、overcommit, reuse, newspi の3項目と、class というものを設定する必要がある。
+  int features = _pthread_workqueue_supported();
+  int flags = 0;
+
   assert(features & PTHREAD_FEATURE_QOS_MAINTENANCE); // これによって priority の計算方法が変わる
   assert(features & PTHREAD_FEATURE_FINEPRIO); // これによってコールバックの引数が変わる。
 
-  fprintf(stderr, "features = 0x%x\n", features);
+  // assert で WQ_FLAG_THREAD_NEWSPI が常に on になっていることを期待していたのでそれに従う。
+  flags |= WQ_FLAG_THREAD_NEWSPI;
+
+  // thread の初期化処理を走らせたいので reuse は常に on にする。
+  flags |= WQ_FLAG_THREAD_REUSE;
+
+  // overcommit の有無は priority に埋め込まれている。
+  if (priority & _PTHREAD_PRIORITY_OVERCOMMIT_FLAG) {
+    flags |= WQ_FLAG_THREAD_OVERCOMMIT;
+  }
+
+  // class も同様に priority に埋め込まれている。
+  {
+    int class = (priority & _PTHREAD_PRIORITY_QOS_CLASS_MASK) >> _PTHREAD_PRIORITY_QOS_CLASS_SHIFT;
+    switch(class) {
+      case __PTHREAD_PRIORITY_CBIT_USER_INTERACTIVE:
+        flags |= QOS_CLASS_USER_INTERACTIVE;
+        break;
+      case __PTHREAD_PRIORITY_CBIT_USER_INITIATED:
+        flags |= QOS_CLASS_USER_INITIATED;
+        break;
+      case __PTHREAD_PRIORITY_CBIT_DEFAULT:
+        flags |= QOS_CLASS_DEFAULT;
+        break;
+      case __PTHREAD_PRIORITY_CBIT_UTILITY:
+        flags |= QOS_CLASS_UTILITY;
+        break;
+      case __PTHREAD_PRIORITY_CBIT_BACKGROUND:
+        flags |= QOS_CLASS_BACKGROUND;
+        break;
+#if 0
+        // /usr/include/pthread.h から参照できないので除外した。
+      case __PTHREAD_PRIORITY_CBIT_MAINTENANCE:
+        flags |= QOS_CLASS_MAINTENANCE;
+        break;
+#endif
+      case __PTHREAD_PRIORITY_CBIT_UNSPECIFIED:
+        flags |= QOS_CLASS_UNSPECIFIED;
+        break;
+      default:
+        assert(false);
+    }
+  }
+
+  fprintf(stderr, "features = 0x%x, flags = 0x%x\n", features, flags);
   assert(false);
 }
 
