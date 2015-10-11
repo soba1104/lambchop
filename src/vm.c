@@ -16,7 +16,7 @@
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
   static int count = 0;
   /*if ((count++) <= 175000000) {*/
-  if ((count++) <= 176800000) {
+  if ((count++) <= 300000000) {
   /*if ((count++) <= 200000000) {*/
   /*if ((count++) <= 10450000) {*/
   /*if ((count++) <= 10401000) {*/
@@ -460,7 +460,7 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   set_rdx(cpu, 0x4000UL); // TODO 定数に置き換える
   set_r10(cpu, 0);
   set_r8(cpu, orig_flags & ~PTHREAD_START_CUSTOM);
-  syscall_callback_passthrough(syscall, cpu, logger);
+  syscall_callback_passthrough(syscall, cpu, logger); // TODO pthread_create を使うか検討する。
   set_rdi(cpu, orig_func);
   set_rsi(cpu, orig_func_arg);
   set_rdx(cpu, orig_stack);
@@ -474,6 +474,19 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
     // 生成したスレッドが動き出しても問題なさそうだった。
     // 排他制御を libpthread がかけていた。
   }
+}
+
+static void syscall_callback_bsdthread_terminate(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  uint64_t stackaddr = get_rdi(cpu);
+  size_t size = get_rsi(cpu);
+  uint32_t kthport = get_rdx(cpu);
+  uint32_t sem = get_r10(cpu);
+
+  // TODO メモリの解放
+
+  DEBUG("SYSCALL: bsdthread_terminate(0x%llx, 0x%llx, 0x%x, 0x%x)\n", stackaddr, size, kthport, sem);
+  pthread_exit(NULL);
+  assert(false);
 }
 
 static void syscall_callback_bsdthread_register(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
