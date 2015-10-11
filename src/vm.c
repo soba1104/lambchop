@@ -556,6 +556,12 @@ static void syscall_callback_workq_kernreturn(const syscall_entry *syscall, void
   syscall_callback_passthrough(syscall, cpu, logger);
 }
 
+static void syscall_callback_syscall(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  int num = get_rdi(cpu);
+  DEBUG("SYSCALL: syscall(%d)\n", num); // TODO 置き換え対象のシステムコールが呼ばれたかどうかの検出
+  syscall_callback_passthrough(syscall, cpu, logger);
+}
+
 static void syscall_callback_todo(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
   DEBUG("SYSCALL TODO: %s\n", syscall->name);
   assert(false);
