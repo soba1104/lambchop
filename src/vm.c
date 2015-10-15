@@ -207,6 +207,28 @@ static void syscall_callback_sigaction(const syscall_entry *syscall, void *cpu, 
 #endif
 }
 
+static void syscall_callback_sigaltstack(const syscall_entry *syscall, void *cpu, lambchop_logger *logger) {
+  stack_t *ss = (stack_t*)get_rdi(cpu);
+  stack_t *oss = (stack_t*)get_rsi(cpu);
+  DEBUG("SYSCALL: sigaltstack(");
+  if (ss) {
+    DEBUG("{0x%p, 0x%llx, 0x%x}", ss->ss_sp, ss->ss_size, ss->ss_flags);
+  } else {
+    DEBUG("NULL");
+  }
+  DEBUG(", ");
+  if (oss) {
+    DEBUG("{0x%p, 0x%llx, 0x%x}", oss->ss_sp, oss->ss_size, oss->ss_flags);
+  } else {
+    DEBUG("NULL");
+  }
+  DEBUG(")\n");
+
+  // TODO シグナル発生時のスタックを置き換える。
+  clear_cf(cpu);
+  set_rax(cpu, 0);
+}
+
 typedef struct {
   uint64_t orig_func;
   uint64_t orig_func_arg;
