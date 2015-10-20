@@ -12,11 +12,16 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <setjmp.h>
+
+static pthread_key_t key_wqthread_bool;
+static pthread_key_t key_jmpbuf;
 
 static void dumpstate(void *cpu, void *insn, uint64_t rip, lambchop_logger *logger) {
   static int count = 0;
   /*if ((count++) <= 175000000) {*/
-  if ((count++) <= 400000000) {
+  if ((count++) <= 1000000000) {
+  /*if ((count++) <= 400000000) {*/
   /*if ((count++) <= 200000000) {*/
   /*if ((count++) <= 10450000) {*/
   /*if ((count++) <= 10401000) {*/
@@ -255,6 +260,10 @@ static uint64_t wqthread_start;
 #define PTHREAD_START_SETSCHED  0x02000000
 #define PTHREAD_START_DETACHED  0x04000000
 #define PTHREAD_START_QOSCLASS  0x08000000
+#define PTHREAD_START_QOSCLASS_MASK 0xffffff
+#define PTHREAD_START_POLICY_BITSHIFT 16
+#define PTHREAD_START_POLICY_MASK 0xff
+#define PTHREAD_START_IMPORTANCE_MASK 0xffff
 // PTHREAD_START_QOSCLASS はあんまり気にしなくてよさそう
 // PTHREAD_START_SETSCHED と PTHREAD_START_DETACHED は意味がよくわかっていないので非対応。
 // PTHREAD_START_DETACHED は detach 済みで join 対象にならないスレッドを作成する。気にしなくてよさそう。
@@ -267,6 +276,10 @@ static void bsdthread_handler(bsdthread_arg *arg) {
   pthread_t self = pthread_self();
   lambchop_logger *logger = arg->logger;
   lambchop_vm_t *vm = lambchop_vm_alloc(arg->stack, arg->stack_size);
+  int r;
+
+  r = pthread_setspecific(key_wqthread_bool, (void*)false);
+  assert(r >= 0);
 
   // PTHREAD_START_CUSTOM が無効化だった場合は以下のとおり。
   // -: stack はこちら側で割り当ててよい。
@@ -337,7 +350,13 @@ static void wqthread_handler(int priority) {
   // flags に対し、overcommit, reuse, newspi の3項目と、class というものを設定する必要がある。
   int features = _pthread_workqueue_supported();
   int flags = 0;
+  int r;
+  jmp_buf jbuf;
 
+  r = pthread_setspecific(key_jmpbuf, &jbuf);
+  assert(r >= 0);
+  r = pthread_setspecific(key_wqthread_bool, (void*)true);
+  assert(r >= 0);
   assert(features & PTHREAD_FEATURE_QOS_MAINTENANCE); // これによって priority の計算方法が変わる
   assert(features & PTHREAD_FEATURE_FINEPRIO); // これによってコールバックの引数が変わる。
 
@@ -422,7 +441,12 @@ static void wqthread_handler(int priority) {
     argv[3] = 0; // unused
     argv[4] = flags;
 
-    lambchop_vm_call(vm, LAMBCHOP_VM_PTHREAD_STACK_ADJUST, (void*)wqthread_start, 5, argv, logger);
+    if (setjmp(jbuf) == 0) {
+      lambchop_vm_call(vm, LAMBCHOP_VM_PTHREAD_STACK_ADJUST, (void*)wqthread_start, 5, argv, logger);
+      assert(false);
+    } else {
+      DEBUG("wqthread exited\n");
+    }
     lambchop_vm_free(vm);
   }
 }
@@ -480,12 +504,42 @@ static void syscall_callback_bsdthread_create(const syscall_entry *syscall, void
   //
   // 実装を見た感じ、PTHREAD_START_CUSTOM の場合、ここで渡した pthread という値は無視されるっぽいので
   // 何を渡してもいいはずなんだけど、もし問題があった時に分かりやすいように 0 を渡しておく。
+#if 0
   set_rdi(cpu, (uint64_t)bsdthread_handler);
   set_rsi(cpu, (uint64_t)arg);
   set_rdx(cpu, 0x4000UL); // TODO 定数に置き換える
   set_r10(cpu, 0);
   set_r8(cpu, orig_flags & ~PTHREAD_START_CUSTOM);
   syscall_callback_passthrough(syscall, cpu, logger); // TODO pthread_create を使うか検討する。
+#else
+  {
+    pthread_t th;
+    pthread_attr_t attr;
+    int r;
+
+    r = pthread_attr_init(&attr);
+    assert(r == 0);
+    if (orig_flags & PTHREAD_START_DETACHED) {
+      r = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+      assert(r == 0);
+    }
+    if (orig_flags & PTHREAD_START_SETSCHED) {
+      struct sched_param sched;
+      int policy = (orig_flags >> PTHREAD_START_POLICY_BITSHIFT) & PTHREAD_START_POLICY_MASK;
+      r = pthread_attr_getschedparam(&attr, &sched);
+      assert(r == 0);
+      sched.sched_priority = (orig_flags & PTHREAD_START_IMPORTANCE_MASK);
+      r = pthread_attr_setschedparam(&attr, &sched);
+      assert(r == 0);
+      r = pthread_attr_setschedpolicy(&attr, policy);
+      assert(r == 0);
+    } else if (orig_flags & PTHREAD_START_QOSCLASS) {
+      // TODO default の qosclass と flags の qosclass が一致していることの確認。
+    }
+    pthread_attr_setstacksize(&attr, 0x100000);
+    pthread_create(&th, 0, (void*)bsdthread_handler, arg);
+  }
+#endif
   set_rdi(cpu, orig_func);
   set_rsi(cpu, orig_func_arg);
   set_rdx(cpu, orig_stack);
@@ -506,11 +560,18 @@ static void syscall_callback_bsdthread_terminate(const syscall_entry *syscall, v
   size_t size = get_rsi(cpu);
   uint32_t kthport = get_rdx(cpu);
   uint32_t sem = get_r10(cpu);
+  bool is_wqthread = pthread_getspecific(key_wqthread_bool);
 
   // TODO メモリの解放
 
   DEBUG("SYSCALL: bsdthread_terminate(0x%llx, 0x%llx, 0x%x, 0x%x)\n", stackaddr, size, kthport, sem);
-  pthread_exit(NULL);
+  DEBUG("pthread = 0x%llx, is_wqthread=%d\n", pthread_self(), is_wqthread);
+  if (is_wqthread) {
+    jmp_buf *jbuf = pthread_getspecific(key_jmpbuf);
+    longjmp(*jbuf, 1);
+  } else {
+    pthread_exit(NULL);
+  }
   assert(false);
 }
 
@@ -719,4 +780,15 @@ void lambchop_vm_free(lambchop_vm_t *vm) {
   free_cpu(vm->cpu);
   free(vm->stack);
   free(vm);
+}
+
+bool lambchop_vm_init(void) {
+  // TODO 解放処理。
+  if (pthread_key_create(&key_wqthread_bool, NULL)) {
+    return false;
+  }
+  if (pthread_key_create(&key_jmpbuf, NULL)) {
+    return false;
+  }
+  return true;
 }

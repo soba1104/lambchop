@@ -45,6 +45,7 @@ bool lambchop_file_read_all(const char *path, lambchop_logger *logger, char **bu
 lambchop_vm_t *lambchop_vm_alloc(void *stack, uint64_t stack_size);
 void lambchop_vm_free(lambchop_vm_t *vm);
 int lambchop_vm_run(lambchop_vm_t *vm, void *mainfunc, lambchop_logger *logger);
+bool lambchop_vm_init(void);
 
 #define LAMBCHOP_VM_DEFAULT_STACK_ADJUST 0x08
 #define LAMBCHOP_VM_PTHREAD_STACK_ADJUST 0x00

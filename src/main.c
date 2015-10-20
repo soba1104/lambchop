@@ -36,6 +36,11 @@ apple[0] = argv[1];
   app_path = argv[1];
   dyld_path = argv[2];
 
+  if (!lambchop_vm_init()) {
+    fprintf(stderr, "failed to init vm\n");
+    goto err;
+  }
+
   if (!lambchop_logger_init(&logger)) {
     fprintf(stderr, "failed to init logger\n");
     goto err;
